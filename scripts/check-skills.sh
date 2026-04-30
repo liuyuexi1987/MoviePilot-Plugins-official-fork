@@ -5,6 +5,24 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 export PYTHONDONTWRITEBYTECODE=1
 
+show_help() {
+  cat <<'EOF'
+Usage:
+  bash scripts/check-skills.sh
+
+Runs public skill checks:
+- required file presence
+- helper selftests
+- install dry-runs
+- helper version drift checks
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 EXPECTED_SKILLS=(
   agent-resource-officer
   hdhive-search-unlock-to-115

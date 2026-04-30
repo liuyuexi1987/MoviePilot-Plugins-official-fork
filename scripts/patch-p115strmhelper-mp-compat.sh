@@ -8,6 +8,21 @@ plugin_files=(
 )
 tmp_dir="$(mktemp -d)"
 
+show_help() {
+  cat <<'EOF'
+Usage:
+  MP_CONTAINER=<container> bash scripts/patch-p115strmhelper-mp-compat.sh
+
+Applies the local P115StrmHelper compatibility patch inside the target
+MoviePilot container, then runs py_compile against the patched plugin file.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 cleanup() {
   rm -rf "${tmp_dir}"
 }

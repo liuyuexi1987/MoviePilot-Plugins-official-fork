@@ -3,6 +3,21 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
+show_help() {
+  cat <<'EOF'
+Usage:
+  bash scripts/sync-repo-layout.sh
+
+Syncs root plugin source directories into plugins/ and plugins.v2/ using the
+current package.json plugin list and normalized lower-case target names.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 sync_plugin() {
   local src_dir="$1"
   local target_name="$2"

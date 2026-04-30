@@ -4,6 +4,21 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+show_help() {
+  cat <<'EOF'
+Usage:
+  bash scripts/write-dist-sha256.sh
+
+Regenerates dist/SHA256SUMS.txt and dist/MANIFEST.json from the current plugin
+ZIP files in dist/.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 python3 - <<'PY'
 from hashlib import sha256
 import json
