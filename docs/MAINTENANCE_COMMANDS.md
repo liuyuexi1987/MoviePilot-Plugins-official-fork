@@ -22,6 +22,32 @@ bash scripts/release-preflight.sh
 bash scripts/pre-release-check.sh
 ```
 
+## 推荐顺序
+
+- 日常看状态或准备整理仓库：
+
+```bash
+bash scripts/repo-hygiene.sh
+```
+
+- 准备发版、打包、更新 Draft Release 之前：
+
+```bash
+bash scripts/release-preflight.sh
+```
+
+- 准备在 GitHub 上创建或更新 Draft Release：
+
+```bash
+bash scripts/create-draft-release.sh <tag> --dry-run
+```
+
+- 想确认最近一次 GitHub Actions 产物是否完整：
+
+```bash
+bash scripts/verify-release-preflight-artifact.sh
+```
+
 ## 状态与审计
 
 - 检查当前状态文档是否和代码版本一致：
