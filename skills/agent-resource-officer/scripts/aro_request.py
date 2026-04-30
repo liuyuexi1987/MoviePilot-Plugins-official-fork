@@ -1154,6 +1154,8 @@ def selftest_result():
     check("commands_catalog_includes_version", "version" in catalog_names)
     check("commands_catalog_includes_external_agent", "external-agent" in catalog_names)
     check("commands_catalog_includes_workbuddy_alias", "workbuddy" in catalog_names)
+    workbuddy_entry = next((item for item in catalog_commands if item.get("name") == "workbuddy"), {})
+    check("commands_catalog_marks_workbuddy_deprecated", workbuddy_entry.get("deprecated") is True)
     check("commands_catalog_complete", catalog_names == set(HELPER_COMMANDS))
     check("commands_writes_are_boolean", all(isinstance(item.get("writes"), bool) for item in catalog_commands))
     check("commands_have_write_condition", all("write_condition" in item for item in catalog_commands))
@@ -1187,7 +1189,7 @@ def commands_catalog():
         "commands": [
             {"name": "version", "network": False, "writes": False, "write_condition": "", "purpose": "print local helper version"},
             {"name": "external-agent", "network": False, "writes": False, "write_condition": "", "purpose": "print external agent connection prompt and minimal tool contract"},
-            {"name": "workbuddy", "network": False, "writes": False, "write_condition": "", "purpose": "compatibility alias for external-agent"},
+            {"name": "workbuddy", "network": False, "writes": False, "write_condition": "", "purpose": "compatibility alias for external-agent", "deprecated": True},
             {"name": "commands", "network": False, "writes": False, "write_condition": "", "purpose": "print local helper command catalog"},
             {"name": "config-check", "network": False, "writes": False, "write_condition": "", "purpose": "check local connection settings without printing secrets"},
             {"name": "selftest", "network": False, "writes": False, "write_condition": "", "purpose": "test local helper decision and command generation logic"},
