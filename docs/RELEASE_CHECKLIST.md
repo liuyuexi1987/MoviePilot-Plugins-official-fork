@@ -184,6 +184,12 @@ python3 scripts/archive-local-branches.py --apply
 
 这个脚本会先把本地历史分支转成 `archive/<branch>` 本地 tag，再删除分支名。
 
+如果只是想一条命令快速看当前仓库分支卫生状态，可以执行：
+
+```bash
+bash scripts/repo-hygiene.sh
+```
+
 注意：
 
 - 远端分支如果是通过 `squash merge` 合并，`git merge-base --is-ancestor` 不能直接作为删分支依据。
