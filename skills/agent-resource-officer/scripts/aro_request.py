@@ -308,6 +308,7 @@ def external_agent_payload():
             "confirmation_rule": "写入动作默认确认制；只有明确标记可自动继续的只读步骤才自动续跑。",
         },
         "compat_aliases": ["workbuddy"],
+        "deprecated_aliases": ["workbuddy"],
         "prompt": prompt,
         "tools": [
             {
@@ -1145,6 +1146,7 @@ def selftest_result():
     check("external_agent_payload_has_entry_patterns", bool(((external_agent.get("entry_patterns") or {}).get("mp_builtin_agent") or {}).get("route_with")))
     check("external_agent_payload_has_entry_playbooks", len((((external_agent.get("entry_playbooks") or {}).get("external_agent") or {}).get("steps") or [])) >= 4)
     check("external_agent_payload_has_mp_playbook_tool", bool(((((external_agent.get("entry_playbooks") or {}).get("mp_builtin_agent") or {}).get("steps") or [{}])[0]).get("tool")))
+    check("external_agent_payload_has_deprecated_aliases", "workbuddy" in (external_agent.get("deprecated_aliases") or []))
 
     catalog = commands_catalog()
     catalog_commands = catalog.get("commands") or []
