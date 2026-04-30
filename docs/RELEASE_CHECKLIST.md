@@ -101,7 +101,7 @@ gh run list --limit 3
 
 `Release Preflight` workflow 通过后会在该 run 的 Artifacts 区域生成 `moviepilot-release-assets-<commit>`，里面包含本次插件 ZIP、Skill ZIP、`SHA256SUMS.txt` 和 `MANIFEST.json`。Draft Release 附件中的校验文件会使用 `PLUGIN_` / `SKILL_` 前缀避免重名。
 
-如需在本地下载并校验最近一次成功 CI artifact：
+如需在本地下载并校验最近一次成功 `Release Preflight` artifact：
 
 ```bash
 bash scripts/verify-ci-artifact.sh

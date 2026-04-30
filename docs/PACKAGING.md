@@ -96,7 +96,7 @@ bash scripts/verify-skill-dist.sh
 bash scripts/write-dist-sha256.sh
 ```
 
-如果只想校验已经生成或从 CI artifact 下载下来的完整发布产物目录：
+如果只想校验已经生成或从 `Release Preflight` artifact 下载下来的完整发布产物目录：
 
 ```bash
 bash scripts/verify-release-assets.sh
@@ -125,7 +125,7 @@ bash scripts/clean-generated.sh
 bash scripts/clean-generated.sh --dist
 ```
 
-如果要下载并校验最近一次成功 CI artifact：
+如果要下载并校验最近一次成功 `Release Preflight` artifact：
 
 ```bash
 bash scripts/verify-ci-artifact.sh
