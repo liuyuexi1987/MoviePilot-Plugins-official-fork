@@ -62,7 +62,11 @@
 
 ## 当前状态
 
-- 当前版本：`0.2.37`
+- 当前版本：`0.2.67`
+- 当前 helper 版本：`0.1.40`
+- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.67>
+- 当前最小智能体循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
+- 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
 - 已进入第一阶段可用状态
 - 已验证 `影巢健康检查 / 夸克健康检查 / 影巢候选搜索 / 选片进入资源列表`
 - 已接入第一批原生 `Agent Tool`

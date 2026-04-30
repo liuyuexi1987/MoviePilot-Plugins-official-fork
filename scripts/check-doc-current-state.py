@@ -64,6 +64,21 @@ checks = {
         f"当前插件版本：`Agent影视助手 {plugin_version}`",
         f"当前 helper 版本：`agent-resource-officer {helper_version}`",
     ],
+    "AgentResourceOfficer/README.md": [
+        f"当前版本：`{plugin_version}`",
+        f"当前 helper 版本：`{helper_version}`",
+        release_url,
+    ],
+    "plugins/agentresourceofficer/README.md": [
+        f"当前版本：`{plugin_version}`",
+        f"当前 helper 版本：`{helper_version}`",
+        release_url,
+    ],
+    "plugins.v2/agentresourceofficer/README.md": [
+        f"当前版本：`{plugin_version}`",
+        f"当前 helper 版本：`{helper_version}`",
+        release_url,
+    ],
 }
 
 failures: list[str] = []
