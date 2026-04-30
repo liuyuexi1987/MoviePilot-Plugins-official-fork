@@ -134,7 +134,7 @@ python3 <SKILL_HOME>/agent-resource-officer/scripts/aro_request.py external-agen
 - Skill 文档中必须写明：不保存、不输出 API Key、Cookie、Token。
 - Skill 至少提供 `startup`、`route`、`pick`、`preferences` 四个入口。
 - session 示例使用 `agent:会话ID`，不要把平台名写死。
-- 推荐 helper 命令使用 `external-agent`；`workbuddy` 只作为兼容别名。
+- 推荐 helper 命令使用 `external-agent`；`workbuddy` 只作为兼容别名，并已标记为 deprecated。
 - 创建后自测 `盘搜搜索 大君夫人` 应走 `route`，`选择 3` 应沿用同一 session 走 `pick`。
 
 ## 最小工具

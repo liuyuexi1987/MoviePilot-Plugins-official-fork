@@ -136,7 +136,7 @@ python3 <SKILL_HOME>/agent-resource-officer/scripts/aro_request.py external-agen
 
 这里的 `<SKILL_HOME>` 指你的智能体 Skill 根目录，例如某些客户端会使用自己的 `skills/` 目录；不要把个人机器路径写进公开 Skill。
 
-`external-agent` 输出紧凑 JSON，适合直接喂给外部智能体；`external-agent --full` 输出完整说明。旧命令 `workbuddy` 仍保留为兼容别名。
+`external-agent` 输出紧凑 JSON，适合直接喂给外部智能体；`external-agent --full` 输出完整说明。旧命令 `workbuddy` 仍保留为兼容别名，但已标记为 deprecated。
 
 ## 让外部智能体创建自己的 Skill
 

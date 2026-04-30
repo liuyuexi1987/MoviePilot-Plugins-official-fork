@@ -147,7 +147,7 @@ gh workflow run draft-release.yml -f tag=<tag> -f dry_run=true
 - 仓库内发布脚本和 Skill shell helper 必须能通过 shell 语法检查
 - 插件代码和仓库内 Skill helper 脚本必须能通过 Python 语法检查
 - `AgentResourceOfficer` 和 `hdhive-search-unlock-to-115` Skill helper 的本地 `selftest` 必须通过
-- `AgentResourceOfficer` Skill 的 `external-agent` 入口必须能输出 `external_agent.v1`、3 个最小工具和有效 `EXTERNAL_AGENTS.md`；`workbuddy` 作为兼容别名保留。
+- `AgentResourceOfficer` Skill 的 `external-agent` 入口必须能输出 `external_agent.v1`、3 个最小工具和有效 `EXTERNAL_AGENTS.md`；`workbuddy` 仅作为兼容别名保留，并已标记为 deprecated。
 - `AgentResourceOfficer` 和 `hdhive-search-unlock-to-115` Skill helper 版本必须同步到 README 和 CHANGELOG
 - `AgentResourceOfficer` 和 `hdhive-search-unlock-to-115` Skill 安装脚本的 `--dry-run` 必须通过
 - 如果设置 `RUN_AGENT_RESOURCE_OFFICER_LIVE_SMOKE=1`，完整检查还会执行 `scripts/smoke-agent-resource-officer.py --include-search`，对本机 MoviePilot 做真实只读 smoke
