@@ -2,6 +2,18 @@
 
 目标：说明 `Agent影视助手 / AgentResourceOfficer` 在 `MoviePilot` 不和外部智能体跑在同一台机器时，应该如何配置和排查。
 
+## 当前适用状态
+
+- 当前插件版本：`Agent影视助手 0.2.66`
+- 当前 helper 版本：`agent-resource-officer 0.1.39`
+- 当前最小变量：
+  - `ARO_BASE_URL`
+  - `ARO_API_KEY`
+- 当前最小验证：
+  - `python3 scripts/aro_request.py readiness`
+  - `python3 scripts/aro_request.py external-agent`
+  - `python3 scripts/aro_request.py route --text "盘搜搜索 大君夫人" --summary-only`
+
 结论先说：
 
 - 这套交互逻辑仍然成立。
