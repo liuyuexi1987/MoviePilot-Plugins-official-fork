@@ -4,6 +4,20 @@
 
 推荐优先使用 MoviePilot 自定义插件仓库安装；只有需要离线安装或调试单插件时，再使用本地 ZIP。
 
+## 当前推荐安装状态
+
+- 资源主线：`Agent影视助手 / AgentResourceOfficer 0.2.66`
+- AI 识别主线：`AIRecognizerEnhancer 0.1.11`
+- 当前 Skill helper：`agent-resource-officer 0.1.39`
+- 当前 Release：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.66>
+
+如果你是新用户，优先装：
+
+- `AgentResourceOfficer`
+- `AIRecognizerEnhancer`
+
+只有在明确需要旧兼容入口或单点功能时，再补装旧插件。
+
 ## 方式 1：插件仓库安装
 
 在 MoviePilot 中添加本仓库作为自定义插件仓库：
