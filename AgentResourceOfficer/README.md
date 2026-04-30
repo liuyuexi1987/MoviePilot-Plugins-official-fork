@@ -574,6 +574,25 @@ POST /api/v1/plugin/AgentResourceOfficer/assistant/workflow
 
 这个接口是给外部智能体启动前使用的轻量探针，会返回插件版本、是否启用、115/影巢/夸克状态、活跃会话数量、推荐入口和启动提示。外部智能体可以先调它，看到 `can_start=true` 后再进入 `assistant/workflow` 或 `assistant/actions`。
 
+从 `0.2.65` 开始，`assistant/request_templates` 与 `recommended_recipe_detail` 会继续附带模板编排契约，直接说明：
+
+- 服务端和客户端各自负责什么
+- 推荐首调 `startup`
+- 推荐判断 `decide --summary-only`
+- 推荐执行 `route --summary-only`
+- 推荐跟进 `followup --summary-only`
+- 外部智能体优先读取哪些 compact 字段
+
+这样新接入的外部智能体、MP 内置智能体和飞书入口可以复用同一套最小执行流，不再各自拼一套启动逻辑。
+
+从 `0.2.66` 开始，`assistant/request_templates` 还会直接带 `entry_playbooks`，把三类入口各自该调什么 helper / HTTP / Tool 直接列出来：
+
+- `external_agent`
+- `mp_builtin_agent`
+- `feishu_channel`
+
+每类入口都会带最小步骤、推荐读取字段和实际执行入口，方便接入方少读文档、少写胶水代码。
+
 从 `0.1.40` 开始，还新增了：
 
 - `GET /assistant/history`
