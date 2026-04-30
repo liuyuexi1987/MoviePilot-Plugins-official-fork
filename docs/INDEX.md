@@ -26,9 +26,11 @@
 
 1. 先跑：
    `bash scripts/repo-hygiene.sh`
-2. 再看：
+2. 如果准备发版，再跑：
+   `bash scripts/release-preflight.sh`
+3. 再看：
    [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
-3. 如需当前发版口径：
+4. 如需当前发版口径：
    [GITHUB_PUBLISH.md](./GITHUB_PUBLISH.md)
 
 ## 当前有效文档清单
