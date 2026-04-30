@@ -70,6 +70,9 @@
 
 ## 当前状态
 
+- 当前版本：`0.1.11`
+- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.67>
+- 当前主线：`MoviePilot 内置 LLM 本地兜底`
 - `0.1.11` 已补上识别词建议模型退化时的精确规则兜底，并同步插件市场版本
 - 方向已切到 MP 内置 LLM 本地兜底
 - 还会继续补提示词、样本分析和识别词建议

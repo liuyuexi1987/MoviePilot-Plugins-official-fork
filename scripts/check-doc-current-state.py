@@ -21,6 +21,7 @@ def extract_pattern(text: str, pattern: str, label: str) -> str:
 
 plugin_init = read_text("AgentResourceOfficer/__init__.py")
 helper_script = read_text("skills/agent-resource-officer/scripts/aro_request.py")
+ai_plugin_init = read_text("AIRecognizerEnhancer/__init__.py")
 
 plugin_version = extract_pattern(
     plugin_init,
@@ -31,6 +32,11 @@ helper_version = extract_pattern(
     helper_script,
     r'HELPER_VERSION\s*=\s*"([^"]+)"',
     "helper_version",
+)
+ai_plugin_version = extract_pattern(
+    ai_plugin_init,
+    r'plugin_version\s*=\s*"([^"]+)"',
+    "ai_plugin_version",
 )
 release_url = f"https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v{plugin_version}"
 plugin_zip = f"AgentResourceOfficer-{plugin_version}.zip"
@@ -77,6 +83,18 @@ checks = {
     "plugins.v2/agentresourceofficer/README.md": [
         f"当前版本：`{plugin_version}`",
         f"当前 helper 版本：`{helper_version}`",
+        release_url,
+    ],
+    "AIRecognizerEnhancer/README.md": [
+        f"当前版本：`{ai_plugin_version}`",
+        release_url,
+    ],
+    "plugins/airecognizerenhancer/README.md": [
+        f"当前版本：`{ai_plugin_version}`",
+        release_url,
+    ],
+    "plugins.v2/airecognizerenhancer/README.md": [
+        f"当前版本：`{ai_plugin_version}`",
         release_url,
     ],
 }
