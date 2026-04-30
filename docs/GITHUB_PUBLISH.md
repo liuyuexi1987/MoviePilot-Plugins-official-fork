@@ -26,12 +26,12 @@ Personal MoviePilot plugin suite for agent-driven resource workflows, AI recogni
 - 如果只想先验证“当前状态”文档有没有版本漂移，可以单独执行：
   - `python3 scripts/check-doc-current-state.py`
 - Release 附件可上传 `dist/` 下生成的插件 ZIP，以及 `dist/skills/` 下生成的公开 Skill ZIP；校验文件在 Release 附件中使用 `PLUGIN_` / `SKILL_` 前缀避免重名
-- CI 通过后会把插件 ZIP、Skill ZIP、`SHA256SUMS.txt` 和 `MANIFEST.json` 上传为 Actions artifact，可直接下载核对或作为 Release 附件来源
+- `Release Preflight` workflow 通过后会把插件 ZIP、Skill ZIP、`SHA256SUMS.txt` 和 `MANIFEST.json` 上传为 Actions artifact，可直接下载核对或作为 Release 附件来源
 - 可以用 `bash scripts/create-draft-release.sh <tag> --dry-run` 预览 Release 附件和说明，再去掉 `--dry-run` 创建 Draft Release
 - 也可以手动运行 GitHub Actions -> Draft Release；默认 `dry_run=true`，并会上传 release asset artifact 供核对
 - Draft Release 核对无误后，用 `gh release edit <tag> --draft=false --latest --target main` 发布正式 Release
 - 正式发布后执行 `bash scripts/verify-release-download.sh <tag>`，确认公开附件可下载且校验通过
-- GitHub Actions 已支持手动运行，可在 Actions -> CI -> Run workflow 主动触发一次完整发布检查
+- GitHub Actions 已支持手动运行，可在 Actions -> Release Preflight -> Run workflow 主动触发一次完整发布检查
 - 具体发版步骤见：[RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
 
 ## 当前对外文档

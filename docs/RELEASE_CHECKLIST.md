@@ -99,7 +99,7 @@ bash scripts/print-skill-release-summary.sh
 gh run list --limit 3
 ```
 
-CI 通过后会在该 run 的 Artifacts 区域生成 `moviepilot-release-assets-<commit>`，里面包含本次插件 ZIP、Skill ZIP、`SHA256SUMS.txt` 和 `MANIFEST.json`。Draft Release 附件中的校验文件会使用 `PLUGIN_` / `SKILL_` 前缀避免重名。
+`Release Preflight` workflow 通过后会在该 run 的 Artifacts 区域生成 `moviepilot-release-assets-<commit>`，里面包含本次插件 ZIP、Skill ZIP、`SHA256SUMS.txt` 和 `MANIFEST.json`。Draft Release 附件中的校验文件会使用 `PLUGIN_` / `SKILL_` 前缀避免重名。
 
 如需在本地下载并校验最近一次成功 CI artifact：
 
@@ -126,7 +126,7 @@ bash scripts/verify-release-assets.sh /path/to/release-assets
 bash scripts/update-draft-release-assets.sh <tag> --skip-check
 ```
 
-也可以在 GitHub 页面手动运行：Actions -> CI -> Run workflow。
+也可以在 GitHub 页面手动运行：Actions -> Release Preflight -> Run workflow。
 
 ## 6. 创建 Draft Release
 
