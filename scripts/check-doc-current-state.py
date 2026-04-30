@@ -113,8 +113,23 @@ checks = {
     ],
 }
 
+maintenance_link_checks = {
+    "README.md": ["docs/MAINTENANCE_COMMANDS.md"],
+    "docs/INDEX.md": ["MAINTENANCE_COMMANDS.md"],
+    "docs/GITHUB_PUBLISH.md": ["docs/MAINTENANCE_COMMANDS.md"],
+    "docs/RELEASE_CHECKLIST.md": ["docs/MAINTENANCE_COMMANDS.md"],
+    "docs/PACKAGING.md": ["docs/MAINTENANCE_COMMANDS.md"],
+    "docs/PLUGIN_INSTALL.md": ["docs/MAINTENANCE_COMMANDS.md"],
+}
+
 failures: list[str] = []
 for rel_path, required_fragments in checks.items():
+    text = read_text(rel_path)
+    for fragment in required_fragments:
+        if fragment not in text:
+            failures.append(f"{rel_path}: missing {fragment}")
+
+for rel_path, required_fragments in maintenance_link_checks.items():
     text = read_text(rel_path)
     for fragment in required_fragments:
         if fragment not in text:
