@@ -372,7 +372,7 @@ python3 scripts/aro_request.py workflow --workflow mp_sites --status active --li
 python3 scripts/aro_request.py workflow --workflow mp_downloaders
 ```
 
-MP 订阅也可以交给资源官统一调度。查询是读操作；搜索、暂停、恢复、删除订阅会先返回 `plan_id`：
+MP 订阅也可以交给 Agent影视助手统一调度。查询是读操作；搜索、暂停、恢复、删除订阅会先返回 `plan_id`：
 
 ```bash
 python3 scripts/aro_request.py route --text "订阅列表"
