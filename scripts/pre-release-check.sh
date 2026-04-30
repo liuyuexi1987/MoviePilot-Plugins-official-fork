@@ -50,7 +50,9 @@ HELP_SHELL_SCRIPTS=(
   scripts/release-preflight.sh
   scripts/pre-release-check.sh
   scripts/check-skills.sh
+  scripts/clean-generated.sh
   scripts/package-plugin.sh
+  scripts/package-skills.sh
   scripts/sync-repo-layout.sh
   scripts/sync-package-v2.sh
   scripts/create-draft-release.sh

@@ -30,6 +30,13 @@ bash scripts/pre-release-check.sh
 bash scripts/repo-hygiene.sh
 ```
 
+- 想清理本地生成文件或顺手删除 `dist/`：
+
+```bash
+bash scripts/clean-generated.sh
+bash scripts/clean-generated.sh --dist
+```
+
 - 准备发版、打包、更新 Draft Release 之前：
 
 ```bash
@@ -95,6 +102,12 @@ bash scripts/update-draft-release-assets.sh <tag>
 bash scripts/verify-release-download.sh <tag>
 ```
 
+- 单独打包公开 Skill ZIP：
+
+```bash
+bash scripts/package-skills.sh
+```
+
 ## Artifact 与产物校验
 
 - 下载并校验最近一次成功的 `Release Preflight` workflow artifact：
@@ -151,7 +164,9 @@ bash scripts/generate-release-notes.sh <tag>
 - `release-preflight.sh`
 - `pre-release-check.sh`
 - `check-skills.sh`
+- `clean-generated.sh`
 - `package-plugin.sh`
+- `package-skills.sh`
 - `sync-repo-layout.sh`
 - `sync-package-v2.sh`
 - `create-draft-release.sh`
