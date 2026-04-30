@@ -30,6 +30,12 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 
 ## 方式 2：本地 ZIP 安装
 
+如果你是在维护仓库、准备打包或发布，而不是普通安装用户，先执行一次：
+
+```bash
+bash scripts/repo-hygiene.sh
+```
+
 发布前可在仓库根目录生成所有可本地安装的 ZIP：
 
 ```bash
