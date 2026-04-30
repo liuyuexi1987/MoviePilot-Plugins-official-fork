@@ -3,10 +3,21 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def show_help() -> None:
+    print(
+        "Usage:\n"
+        "  python3 scripts/audit-remote-branches.py\n\n"
+        "Prints JSON describing remote non-main branches and local non-main\n"
+        "branches, including PR linkage, ancestry, unique patch counts and\n"
+        "cleanup recommendations."
+    )
 
 
 def run(*args: str) -> str:
@@ -99,6 +110,10 @@ def local_recommendation(*, has_remote: bool, has_pr: bool, pr_state: str | None
 
 
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] in {"--help", "-h"}:
+        show_help()
+        return 0
+
     prs, pr_lookup = pr_map()
     remotes = remote_branches()
     locals_ = local_branches()

@@ -2,10 +2,20 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def show_help() -> None:
+    print(
+        "Usage:\n"
+        "  python3 scripts/check-doc-current-state.py\n\n"
+        "Checks whether current-status documents and readmes match the live\n"
+        "plugin version, helper version and release URL."
+    )
 
 
 def read_text(rel_path: str) -> str:
@@ -22,6 +32,10 @@ def extract_pattern(text: str, pattern: str, label: str) -> str:
 plugin_init = read_text("AgentResourceOfficer/__init__.py")
 helper_script = read_text("skills/agent-resource-officer/scripts/aro_request.py")
 ai_plugin_init = read_text("AIRecognizerEnhancer/__init__.py")
+
+if len(sys.argv) > 1 and sys.argv[1] in {"--help", "-h"}:
+    show_help()
+    raise SystemExit(0)
 
 plugin_version = extract_pattern(
     plugin_init,
