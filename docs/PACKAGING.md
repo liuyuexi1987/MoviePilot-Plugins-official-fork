@@ -1,5 +1,11 @@
 # 插件和 Skill ZIP 打包说明
 
+开始打包或发布前，先执行一次：
+
+```bash
+bash scripts/repo-hygiene.sh
+```
+
 ## 目标
 
 用于生成可在 MoviePilot 本地上传安装的插件 ZIP 包，以及可复制到外部智能体环境的公开 Skill ZIP 包。
