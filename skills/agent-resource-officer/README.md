@@ -4,6 +4,17 @@
 
 当前 helper 版本：`0.1.39`
 
+## 当前状态
+
+- 当前插件版本：`Agent影视助手 0.2.66`
+- 当前最小循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
+- 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
+- 当前最低成本入口：
+  - `python3 scripts/aro_request.py readiness`
+  - `python3 scripts/aro_request.py external-agent`
+  - `python3 scripts/aro_request.py decide --summary-only`
+  - `python3 scripts/aro_request.py route --text "盘搜搜索 大君夫人" --summary-only`
+
 公开仓库：
 
 ```text
