@@ -10481,7 +10481,6 @@ class AgentResourceOfficer(_PluginBase):
             "continue_existing_session": ["pick_continue"],
             "maintenance_cycle": ["maintain_preview", "maintain_execute"],
             "external_agent_quickstart": ["startup_probe", "route_text", "pick_continue"],
-            "workbuddy_quickstart": ["startup_probe", "route_text", "pick_continue"],
             "preferences_onboarding": ["preferences_get", "scoring_policy", "preferences_save"],
             "mp_pt_mainline": [
                 "mp_media_detail",
@@ -10934,11 +10933,6 @@ class AgentResourceOfficer(_PluginBase):
                 "name": "external_agent_quickstart",
                 "description": "外部智能体接入：启动探测后，把用户文本交给统一入口，再按编号继续。",
                 "templates": recipe_templates_map["external_agent_quickstart"],
-            },
-            {
-                "name": "workbuddy_quickstart",
-                "description": "兼容别名：等同于 external_agent_quickstart。",
-                "templates": recipe_templates_map["workbuddy_quickstart"],
             },
             {
                 "name": "preferences_onboarding",
