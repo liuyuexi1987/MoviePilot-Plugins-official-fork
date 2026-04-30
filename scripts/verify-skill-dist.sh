@@ -4,6 +4,21 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+show_help() {
+  cat <<'EOF'
+Usage:
+  DIST_DIR=dist/skills bash scripts/verify-skill-dist.sh
+
+Verifies Skill ZIPs, SHA256SUMS.txt and MANIFEST.json under DIST_DIR.
+Defaults to dist/skills.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 DIST_DIR="${DIST_DIR:-dist/skills}" python3 - <<'PY'
 from hashlib import sha256
 import json

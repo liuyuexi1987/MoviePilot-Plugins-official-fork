@@ -5,6 +5,20 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ASSET_DIR="${1:-dist}"
+show_help() {
+  cat <<'EOF'
+Usage:
+  bash scripts/verify-release-assets.sh [asset_dir]
+
+Verifies a release asset directory containing plugin ZIPs, Skill ZIPs,
+SHA256SUMS and MANIFEST files. Defaults to dist/.
+EOF
+}
+
+if [[ "$ASSET_DIR" == "--help" || "$ASSET_DIR" == "-h" ]]; then
+  show_help
+  exit 0
+fi
 if [[ ! -d "$ASSET_DIR" ]]; then
   echo "发布产物目录不存在: $ASSET_DIR" >&2
   exit 1

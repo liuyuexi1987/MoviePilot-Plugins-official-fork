@@ -4,6 +4,21 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+show_help() {
+  cat <<'EOF'
+Usage:
+  bash scripts/print-skill-release-summary.sh
+
+Prints a Markdown table for public Skill ZIP release assets from
+dist/skills/MANIFEST.json.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 python3 - <<'PY'
 import json
 from pathlib import Path
