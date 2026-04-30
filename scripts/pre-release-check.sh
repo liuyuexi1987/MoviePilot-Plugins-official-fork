@@ -218,7 +218,10 @@ if missing_changelog_items:
 
 ci_workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
 required_ci_fragments = [
+    "name: Release Preflight",
     "actions/upload-artifact@v7",
+    "fetch-depth: 0",
+    "scripts/release-preflight.sh",
     "moviepilot-release-assets-",
     "dist/*.zip",
     "dist/SHA256SUMS.txt",
@@ -232,6 +235,7 @@ draft_release_workflow = Path(".github/workflows/draft-release.yml").read_text(e
 required_draft_release_fragments = [
     "workflow_dispatch:",
     "contents: write",
+    "fetch-depth: 0",
     "scripts/create-draft-release.sh",
     "dry_run",
 ]
