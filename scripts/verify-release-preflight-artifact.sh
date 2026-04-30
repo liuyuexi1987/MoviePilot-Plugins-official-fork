@@ -7,6 +7,22 @@ cd "$ROOT_DIR"
 RUN_ID="${1:-}"
 WORKFLOW_NAME="${WORKFLOW_NAME:-Release Preflight}"
 WORKFLOW_FILE="${WORKFLOW_FILE:-ci.yml}"
+
+show_help() {
+  cat <<'EOF'
+Usage:
+  bash scripts/verify-release-preflight-artifact.sh [run_id]
+
+Downloads the latest successful Release Preflight workflow artifact for main,
+or the artifact from the specified GitHub Actions run id, then verifies the
+plugin ZIP, Skill ZIP, SHA256SUMS and MANIFEST files.
+EOF
+}
+
+if [[ "$RUN_ID" == "--help" || "$RUN_ID" == "-h" ]]; then
+  show_help
+  exit 0
+fi
 if ! command -v gh >/dev/null 2>&1; then
   echo "未找到 gh 命令，无法下载 GitHub Actions artifact。" >&2
   exit 1
