@@ -45,10 +45,10 @@ bash scripts/check-skills.sh
 最终发布前仍然执行完整检查：
 
 ```bash
-bash scripts/pre-release-check.sh
+bash scripts/release-preflight.sh
 ```
 
-这个命令会同步 `plugins/` 和 `plugins.v2/`，检查元数据、Skill helper、ZIP 内容，并重新生成插件 ZIP、Skill ZIP、`SHA256SUMS.txt` 和 `MANIFEST.json`。
+这个命令会先跑 `repo-hygiene.sh`，再执行 `pre-release-check.sh`；后者会同步 `plugins/` 和 `plugins.v2/`，检查元数据、Skill helper、ZIP 内容，并重新生成插件 ZIP、Skill ZIP、`SHA256SUMS.txt` 和 `MANIFEST.json`。
 
 其中也会自动执行：
 
