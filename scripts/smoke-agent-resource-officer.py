@@ -1421,6 +1421,14 @@ def main() -> int:
                 bool(recommend_autoplan_data.get("plan_id")) and recommend_autoplan_data.get("workflow") == "smart_resource_plan",
                 json.dumps(recommend_autoplan_data, ensure_ascii=False)[:240],
             )
+            assert_ok(
+                "route_recommend_autoplan_short_policy",
+                recommend_autoplan_data.get("preferred_command") == "确认"
+                and recommend_autoplan_data.get("fallback_command") == "详情"
+                and recommend_autoplan_data.get("detail_short_command") == "详情"
+                and recommend_autoplan_data.get("confirm_short_command") == "确认",
+                json.dumps(recommend_autoplan_data, ensure_ascii=False)[:280],
+            )
             recommend_autoconfirm = route(base_url, api_key, sessions[16], "确认")
             recommend_autoconfirm_data = data(recommend_autoconfirm)
             assert_ok(
