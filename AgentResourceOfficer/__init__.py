@@ -5270,6 +5270,7 @@ class AgentResourceOfficer(_PluginBase):
         title = self._clean_text(best_candidate.get("title"))
         hard_risks = [self._clean_text(value) for value in (best_candidate.get("hard_risk_reasons") or []) if self._clean_text(value)]
         risks = [self._clean_text(value) for value in (best_candidate.get("risk_reasons") or []) if self._clean_text(value)]
+        origin = self._clean_text(current_state.get("origin")).lower()
         final_path = (
             target_path
             or self._clean_text(current_state.get("target_path"))
@@ -5403,13 +5404,43 @@ class AgentResourceOfficer(_PluginBase):
             }
 
         data = dict(result.get("data") or {})
+        adjusted_decision_summary = dict(decision_summary)
+        if origin == "mp_recommend" and choice and not hard_risks:
+            adjusted_decision_summary.update({
+                "decision_mode": "make_plan",
+                "decision_reason": "推荐会话已为当前首项生成待确认计划；建议先看详情，再决定是否确认执行。",
+                "preferred_command": "确认",
+                "fallback_command": "详情",
+                "detail_command": "详情",
+                "detail_short_command": "详情",
+                "confirmation_prompt": "先看详情；如果确认无误，回复：确认。",
+                "plan_command": "计划",
+                "plan_short_command": "计划",
+                "execute_command": "确认",
+                "confirm_short_command": "确认",
+                "compact_commands": ["确认", "详情"],
+                "command_policy": "read_then_confirm_write",
+                "preferred_requires_confirmation": True,
+                "fallback_requires_confirmation": False,
+                "can_auto_run_preferred": False,
+                "auto_run_command": "详情",
+                "confirm_command": "确认",
+                "display_command": "详情",
+                "recommended_agent_behavior": "auto_continue_then_wait_confirmation",
+            })
         data.update({
             "source_type": source_type,
             "best_candidate": best_candidate,
-            "decision_summary": decision_summary,
+            "decision_summary": adjusted_decision_summary,
             "sources_checked": checked,
             "smart_plan_auto_selected": True,
         })
+        for key in ["detail_short_command", "plan_short_command", "confirm_short_command", "auto_run_command", "confirm_command", "display_command"]:
+            if key in adjusted_decision_summary:
+                data[key] = adjusted_decision_summary.get(key)
+        command_summary = self._assistant_compact_command_summary(data)
+        if command_summary:
+            data.update(command_summary)
         if choice and not data.get("choice"):
             data["choice"] = choice
         result["data"] = data
@@ -5532,6 +5563,7 @@ class AgentResourceOfficer(_PluginBase):
         decision_profile: str = "",
         session_preference_overrides: Optional[Dict[str, Any]] = None,
         action_name: str = "smart_resource_search",
+        origin: str = "",
     ) -> Dict[str, Any]:
         base_preferences = self._assistant_preferences_for_session(session=session)
         preferences = self._assistant_smart_merge_session_preferences(
@@ -5730,6 +5762,7 @@ class AgentResourceOfficer(_PluginBase):
                 "source_order": search_order,
                 "decision_profile": self._clean_text(decision_profile),
                 "decision_entry": action_name,
+                "origin": self._clean_text(origin),
                 "session_preference_overrides": dict(session_preference_overrides or {}),
             }
             self._save_session(cache_key, smart_state)
@@ -5853,6 +5886,7 @@ class AgentResourceOfficer(_PluginBase):
         target_path: str = "",
         decision_profile: str = "",
         session_preference_overrides: Optional[Dict[str, Any]] = None,
+        origin: str = "",
     ) -> Dict[str, Any]:
         return await self._assistant_smart_resource_search(
             request,
@@ -5866,6 +5900,7 @@ class AgentResourceOfficer(_PluginBase):
             decision_profile=decision_profile,
             session_preference_overrides=session_preference_overrides,
             action_name="smart_resource_decision",
+            origin=origin,
         )
 
     async def _assistant_smart_resource_decision_adjust(
@@ -5966,6 +6001,7 @@ class AgentResourceOfficer(_PluginBase):
         year: str,
         source_order: Optional[List[str]] = None,
         target_path: str = "",
+        origin: str = "",
     ) -> Dict[str, Any]:
         if keyword:
             search_result = await self._assistant_smart_resource_search(
@@ -5977,6 +6013,7 @@ class AgentResourceOfficer(_PluginBase):
                 year=year,
                 source_order=source_order,
                 target_path=target_path,
+                origin=origin,
             )
             smart_state = self._assistant_smart_state_after_search(
                 cache_key=cache_key,
@@ -5986,6 +6023,7 @@ class AgentResourceOfficer(_PluginBase):
                 source_order=source_order,
                 target_path=target_path,
                 search_result=search_result,
+                origin=origin,
             )
             if not search_result.get("success") and not bool(((search_result.get("data") or {}).get("best_candidate") or {}).get("source_type")):
                 return search_result
@@ -6012,6 +6050,7 @@ class AgentResourceOfficer(_PluginBase):
         year: str,
         source_order: Optional[List[str]] = None,
         target_path: str = "",
+        origin: str = "",
     ) -> Dict[str, Any]:
         if keyword:
             search_result = await self._assistant_smart_resource_search(
@@ -6023,6 +6062,7 @@ class AgentResourceOfficer(_PluginBase):
                 year=year,
                 source_order=source_order,
                 target_path=target_path,
+                origin=origin,
             )
             smart_state = self._assistant_smart_state_after_search(
                 cache_key=cache_key,
@@ -6032,6 +6072,7 @@ class AgentResourceOfficer(_PluginBase):
                 source_order=source_order,
                 target_path=target_path,
                 search_result=search_result,
+                origin=origin,
             )
             if not search_result.get("success") and not bool(((search_result.get("data") or {}).get("best_candidate") or {}).get("source_type")):
                 return search_result
@@ -6059,6 +6100,7 @@ class AgentResourceOfficer(_PluginBase):
         source_order: Optional[List[str]] = None,
         target_path: str = "",
         search_result: Optional[Dict[str, Any]] = None,
+        origin: str = "",
     ) -> Dict[str, Any]:
         current_state = dict(self._load_session(cache_key) or {})
         if self._clean_text(current_state.get("kind")) == "assistant_smart_search":
@@ -6118,6 +6160,7 @@ class AgentResourceOfficer(_PluginBase):
             "source_order": source_order or current_state.get("source_order") or [],
             "decision_profile": self._clean_text(current_state.get("decision_profile") or ((data.get("decision_summary") or {}) if isinstance(data.get("decision_summary"), dict) else {}).get("decision_profile")),
             "decision_entry": self._clean_text(data.get("action") or current_state.get("decision_entry") or "smart_resource_search"),
+            "origin": self._clean_text(origin or current_state.get("origin")),
             "session_preference_overrides": data.get("session_preference_overrides") if isinstance(data.get("session_preference_overrides"), dict) else dict(current_state.get("session_preference_overrides") or {}),
         }
         self._save_session(cache_key, fallback_state)
@@ -8665,6 +8708,13 @@ class AgentResourceOfficer(_PluginBase):
             data["score_summary"] = self._score_summary(score_items, limit=1)
         if extra_data:
             data.update(extra_data)
+        decision_summary = data.get("decision_summary") if isinstance(data.get("decision_summary"), dict) else {}
+        for key in ["detail_short_command", "plan_short_command", "confirm_short_command", "auto_run_command", "confirm_command", "display_command"]:
+            if key in decision_summary and key not in data:
+                data[key] = decision_summary.get(key)
+        command_summary = self._assistant_compact_command_summary(data)
+        if command_summary:
+            data.update(command_summary)
         return {
             "success": True,
             "message": f"{message}：{plan_id}\n未实际执行。回复“执行计划 {plan_id}”后才会写入。",
@@ -11402,6 +11452,9 @@ class AgentResourceOfficer(_PluginBase):
                     "auto_run_command": AgentResourceOfficer._clean_text(summary.get("auto_run_command")),
                     "confirm_command": AgentResourceOfficer._clean_text(summary.get("confirm_command")),
                     "display_command": AgentResourceOfficer._clean_text(summary.get("display_command")),
+                    "detail_short_command": AgentResourceOfficer._clean_text(summary.get("detail_short_command")),
+                    "plan_short_command": AgentResourceOfficer._clean_text(summary.get("plan_short_command")),
+                    "confirm_short_command": AgentResourceOfficer._clean_text(summary.get("confirm_short_command")),
                 }
         return {}
 
@@ -11572,6 +11625,12 @@ class AgentResourceOfficer(_PluginBase):
             "smart_mode",
             "decision_mode",
             "decision_reason",
+            "detail_short_command",
+            "plan_short_command",
+            "confirm_short_command",
+            "auto_run_command",
+            "confirm_command",
+            "display_command",
             "sample_index",
             "resolved",
             "resolved_by_identifiers",
@@ -11736,6 +11795,9 @@ class AgentResourceOfficer(_PluginBase):
             "effective_preferences": data.get("effective_preferences") or {},
             "session_preference_overrides": data.get("session_preference_overrides") or {},
             "smart_plan_auto_selected": bool(data.get("smart_plan_auto_selected")),
+            "detail_short_command": self._clean_text(((data.get("decision_summary") or {}) if isinstance(data.get("decision_summary"), dict) else {}).get("detail_short_command")),
+            "plan_short_command": self._clean_text(((data.get("decision_summary") or {}) if isinstance(data.get("decision_summary"), dict) else {}).get("plan_short_command")),
+            "confirm_short_command": self._clean_text(((data.get("decision_summary") or {}) if isinstance(data.get("decision_summary"), dict) else {}).get("confirm_short_command")),
             "next_actions": ["execute_plan"] if plan_id else [],
             "action_templates": [template] if template else [],
         }
@@ -18409,6 +18471,7 @@ class AgentResourceOfficer(_PluginBase):
         year = self._clean_text(parsed.get("year"))
         decision_intent = self._clean_text(parsed.get("decision_intent")).lower()
         source_order = body.get("source_order") if isinstance(body.get("source_order"), list) else None
+        origin = self._clean_text(body.get("origin"))
         apikey = self._extract_apikey(request, body)
 
         if mode == "smart":
@@ -18432,6 +18495,7 @@ class AgentResourceOfficer(_PluginBase):
                     year=year,
                     source_order=source_order,
                     target_path=target_path,
+                    origin=origin,
                 ))
             if decision_intent == "show_detail":
                 return finish(await self._assistant_smart_decision_followup_detail(
@@ -18456,6 +18520,7 @@ class AgentResourceOfficer(_PluginBase):
                     year=year,
                     source_order=source_order,
                     target_path=target_path,
+                    origin=origin,
                 ))
             return finish(await self._assistant_smart_resource_search(
                 request,
@@ -18466,6 +18531,7 @@ class AgentResourceOfficer(_PluginBase):
                 year=year,
                 source_order=source_order,
                 target_path=target_path,
+                origin=origin,
             ))
 
         if mode == "smart_decision":
@@ -18489,6 +18555,7 @@ class AgentResourceOfficer(_PluginBase):
                     year=year,
                     source_order=source_order,
                     target_path=target_path,
+                    origin=origin,
                 ))
             if decision_intent == "show_detail":
                 return finish(await self._assistant_smart_decision_followup_detail(
@@ -18514,6 +18581,7 @@ class AgentResourceOfficer(_PluginBase):
                     year=year,
                     source_order=source_order,
                     target_path=target_path,
+                    origin=origin,
                 ))
             return finish(await self._assistant_smart_resource_decision(
                 request,
@@ -18525,6 +18593,7 @@ class AgentResourceOfficer(_PluginBase):
                 source_order=source_order,
                 target_path=target_path,
                 decision_profile=self._clean_text(body.get("decision_profile") or parsed.get("decision_profile")),
+                origin=origin,
             ))
 
         if mode == "smart_plan":
@@ -18547,6 +18616,7 @@ class AgentResourceOfficer(_PluginBase):
                 year=year,
                 source_order=source_order,
                 target_path=target_path,
+                origin=origin,
             ))
 
         if mode == "smart_execute":
@@ -18569,6 +18639,7 @@ class AgentResourceOfficer(_PluginBase):
                 year=year,
                 source_order=source_order,
                 target_path=target_path,
+                origin=origin,
             ))
 
         if mode == "mp":
@@ -20707,16 +20778,19 @@ class AgentResourceOfficer(_PluginBase):
             next_keyword = title
             if next_mode == "smart_decision" and pick_action in {"best", "detail"}:
                 next_keyword = f"{title} 详情"
+            routed_body = {
+                "session": session,
+                "session_id": cache_key,
+                "mode": next_mode,
+                "keyword": next_keyword,
+                "media_type": selected_media_type,
+                "path": target_path,
+                "apikey": self._extract_apikey(request, body),
+            }
+            if next_mode in {"smart_decision", "smart_plan", "smart_execute"}:
+                routed_body["origin"] = "mp_recommend"
             return finish(await self.api_assistant_route(
-                _JsonRequestShim(request, {
-                    "session": session,
-                    "session_id": cache_key,
-                    "mode": next_mode,
-                    "keyword": next_keyword,
-                    "media_type": selected_media_type,
-                    "path": target_path,
-                    "apikey": self._extract_apikey(request, body),
-                })
+                _JsonRequestShim(request, routed_body)
             ))
 
         if kind == "assistant_smart_search":
