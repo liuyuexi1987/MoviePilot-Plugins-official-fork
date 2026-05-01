@@ -7945,6 +7945,61 @@ class AgentResourceOfficer(_PluginBase):
             },
         )
 
+    def _assistant_ai_replay_execution_decision_summary(
+        self,
+        *,
+        ok: bool,
+        resolved: bool,
+        has_title: bool,
+    ) -> Dict[str, Any]:
+        if ok and resolved and has_title:
+            return {
+                "decision_mode": "show_detail",
+                "decision_reason": "这次二次识别已命中目标，下一步先看本地诊断确认是否已消除失败，再决定是否继续整理。",
+                "preferred_command": "诊断",
+                "fallback_command": "入库状态",
+                "compact_commands": ["诊断", "入库状态"],
+                "command_policy": "safe_read_only",
+                "preferred_requires_confirmation": False,
+                "fallback_requires_confirmation": False,
+                "can_auto_run_preferred": True,
+                "recommended_agent_behavior": "auto_continue",
+                "auto_run_command": "诊断",
+                "confirm_command": "",
+                "display_command": "诊断",
+            }
+        if ok:
+            return {
+                "decision_mode": "show_detail",
+                "decision_reason": "这次重放已完成，但暂未命中目标。先回看工作清单和样本洞察，再决定是否继续重放或补识别词。",
+                "preferred_command": "工作清单",
+                "fallback_command": "样本洞察",
+                "compact_commands": ["工作清单", "样本洞察"],
+                "command_policy": "safe_read_only",
+                "preferred_requires_confirmation": False,
+                "fallback_requires_confirmation": False,
+                "can_auto_run_preferred": True,
+                "recommended_agent_behavior": "auto_continue",
+                "auto_run_command": "工作清单",
+                "confirm_command": "",
+                "display_command": "工作清单",
+            }
+        return {
+            "decision_mode": "show_detail",
+            "decision_reason": "这次重放没有成功执行。先回看工作清单或失败样本，确认当前还能处理哪些样本。",
+            "preferred_command": "工作清单",
+            "fallback_command": "失败样本",
+            "compact_commands": ["工作清单", "失败样本"],
+            "command_policy": "show_only",
+            "preferred_requires_confirmation": False,
+            "fallback_requires_confirmation": False,
+            "can_auto_run_preferred": False,
+            "recommended_agent_behavior": "show_only",
+            "auto_run_command": "",
+            "confirm_command": "",
+            "display_command": "工作清单",
+        }
+
     async def _assistant_ai_replay_failed_sample(
         self,
         *,
@@ -8006,11 +8061,17 @@ class AgentResourceOfficer(_PluginBase):
                 lines.append("样本移除：" + ("已移除" if payload.get("sample_removed") else "未移除"))
         else:
             lines.append(self._clean_text(result.get("message")) or "重放失败")
-        recommended_action = "query_mp_local_diagnose" if ok and title else "query_ai_sample_worklist"
+        resolved = bool(payload.get("resolved"))
+        recommended_action = "query_mp_local_diagnose" if ok and resolved and title else "query_ai_sample_worklist"
         follow_up_hint = (
             "先回到本地诊断或入库状态，确认这次重放是否已经消除失败。"
-            if ok and title
+            if ok and resolved and title
             else "先看工作清单或失败样本，确认是否还有可重放样本。"
+        )
+        decision_summary = self._assistant_ai_replay_execution_decision_summary(
+            ok=ok,
+            resolved=resolved,
+            has_title=bool(title),
         )
         return {
             "success": ok,
@@ -8030,6 +8091,7 @@ class AgentResourceOfficer(_PluginBase):
                 "sample_removal_result": payload.get("sample_removal_result") if isinstance(payload.get("sample_removal_result"), dict) else {},
                 "recommended_action": recommended_action,
                 "follow_up_hint": follow_up_hint,
+                "decision_summary": decision_summary,
                 "next_actions": next_actions,
                 "action_templates": action_templates,
             }),
@@ -14447,6 +14509,29 @@ class AgentResourceOfficer(_PluginBase):
             and ((execute_plan_followup_samples.get("ai_replay_failed_sample") or {}).get("followup_summary") or {}).get("fallback_command") == "入库状态"
             and ((execute_plan_followup_samples.get("ai_replay_failed_sample") or {}).get("followup_summary") or {}).get("recommended_agent_behavior") == "auto_continue"
         )
+        ai_replay_execution_summary_resolved = self._assistant_ai_replay_execution_decision_summary(
+            ok=True,
+            resolved=True,
+            has_title=True,
+        )
+        ai_replay_execution_summary_unresolved = self._assistant_ai_replay_execution_decision_summary(
+            ok=True,
+            resolved=False,
+            has_title=True,
+        )
+        ai_replay_execution_summary_failed = self._assistant_ai_replay_execution_decision_summary(
+            ok=False,
+            resolved=False,
+            has_title=True,
+        )
+        ai_replay_execution_summary_ok = (
+            ai_replay_execution_summary_resolved.get("preferred_command") == "诊断"
+            and ai_replay_execution_summary_resolved.get("recommended_agent_behavior") == "auto_continue"
+            and ai_replay_execution_summary_unresolved.get("preferred_command") == "工作清单"
+            and ai_replay_execution_summary_unresolved.get("fallback_command") == "样本洞察"
+            and ai_replay_execution_summary_failed.get("preferred_command") == "工作清单"
+            and ai_replay_execution_summary_failed.get("recommended_agent_behavior") == "show_only"
+        )
         checks = {
             "compact_templates": compact_templates_ok,
             "bool_parser": bool_parse_ok,
@@ -14470,6 +14555,7 @@ class AgentResourceOfficer(_PluginBase):
             "start_new_recovery_not_resumable": start_new_recovery_ok,
             "executed_plan_recovery": executed_plan_recovery_ok,
             "execute_plan_followups": execute_plan_followups_ok,
+            "ai_replay_execution_summary": ai_replay_execution_summary_ok,
             "toolbox_startup_endpoint": bool((toolbox.get("endpoints") or {}).get("startup")),
             "toolbox_maintain_endpoint": bool((toolbox.get("endpoints") or {}).get("maintain")),
             "toolbox_request_templates_endpoint": bool((toolbox.get("endpoints") or {}).get("request_templates")),
