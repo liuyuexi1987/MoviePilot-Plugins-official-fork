@@ -1150,6 +1150,21 @@ def main() -> int:
                 json.dumps(ai_insights_data, ensure_ascii=False)[:240],
             )
 
+            ai_replay = route(base_url, api_key, sessions[4], "重放样本 1")
+            ai_replay_data = assert_route_action("route_ai_replay_failed_sample", ai_replay, "ai_replay_failed_sample", require_success=False)
+            if ai_replay.get("success"):
+                assert_ok(
+                    "route_ai_replay_failed_sample_plan",
+                    bool(ai_replay_data.get("plan_id")) and ai_replay_data.get("workflow") == "ai_replay_failed_sample",
+                    json.dumps(ai_replay_data, ensure_ascii=False)[:240],
+                )
+            else:
+                assert_ok(
+                    "route_ai_replay_failed_sample_empty_ok",
+                    ai_replay_data.get("error_code") in {"sample_not_found", "missing_sample_index"},
+                    json.dumps(ai_replay_data, ensure_ascii=False)[:240],
+                )
+
             smart_followup_idle = route(base_url, api_key, sessions[4], "跟进")
             smart_followup_idle_data = assert_route_action("route_smart_followup_idle", smart_followup_idle, "smart_followup")
             assert_ok(

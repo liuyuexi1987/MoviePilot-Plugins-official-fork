@@ -18,6 +18,7 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
   - `route "失败样本 <片名>" --summary-only`
   - `route "工作清单 <片名>" --summary-only`
   - `route "样本洞察 <片名>" --summary-only`
+  - `route "重放样本 3" --summary-only`
   - `templates --recipe ai_reingest --compact`
 
 给外部智能体学习时，建议让它先读仓库中的：
@@ -110,7 +111,11 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 - `route "样本洞察 <片名>" --summary-only`
 - 或先读模板：`templates --recipe ai_reingest --compact`
 
-这条链当前只做读取、筛选和洞察，不直接触发样本重放或重新整理。
+如果用户已经明确要对某条样本做二次识别重放，再用：
+
+- `route "重放样本 3" --summary-only`
+
+这一步当前只生成待确认计划，真正执行仍然要走 `执行计划 <plan_id>`。
 
 三类入口都复用同一套 assistant 协议：
 
