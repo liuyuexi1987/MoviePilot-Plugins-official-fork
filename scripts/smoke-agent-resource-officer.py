@@ -251,6 +251,9 @@ def main() -> int:
             f"smoke-aro-smart-discovery-followups-{stamp}",
             f"smoke-aro-smart-discovery-detail-flow-{stamp}",
             f"smoke-aro-smart-discovery-autoplan-{stamp}",
+            f"smoke-aro-smart-discovery-direct-detail-{stamp}",
+            f"smoke-aro-smart-discovery-direct-plan-{stamp}",
+            f"smoke-aro-smart-discovery-direct-execute-{stamp}",
         ])
 
     try:
@@ -1436,6 +1439,30 @@ def main() -> int:
                 recommend_autoconfirm_data.get("action") == "execute_plan"
                 and recommend_autoconfirm_data.get("write_effect") == "write",
                 json.dumps(recommend_autoconfirm, ensure_ascii=False)[:240],
+            )
+            direct_discovery_detail = route(base_url, api_key, sessions[17], "智能发现 热门电影 详情")
+            direct_discovery_detail_data = assert_route_action("route_smart_discovery_direct_detail", direct_discovery_detail, "mp_recommendation_detail")
+            assert_ok(
+                "route_smart_discovery_direct_detail_message_ok",
+                "MP 推荐条目详情" in str(direct_discovery_detail_data.get("message_head") or ""),
+                json.dumps(direct_discovery_detail_data, ensure_ascii=False)[:240],
+            )
+            direct_discovery_plan = route(base_url, api_key, sessions[18], "智能发现 热门电影 计划")
+            direct_discovery_plan_data = data(direct_discovery_plan)
+            assert_ok(
+                "route_smart_discovery_direct_plan",
+                direct_discovery_plan.get("success")
+                and direct_discovery_plan_data.get("action") in {"workflow_plan", "smart_resource_plan"}
+                and bool(direct_discovery_plan_data.get("plan_id")),
+                json.dumps(direct_discovery_plan, ensure_ascii=False)[:260],
+            )
+            direct_discovery_execute = route(base_url, api_key, sessions[19], "智能发现 热门电影 确认")
+            direct_discovery_execute_data = data(direct_discovery_execute)
+            assert_ok(
+                "route_smart_discovery_direct_execute",
+                direct_discovery_execute_data.get("action") in {"smart_resource_execute", "execute_plan"}
+                and direct_discovery_execute_data.get("write_effect") == "write",
+                json.dumps(direct_discovery_execute, ensure_ascii=False)[:260],
             )
             tv_recommend = route(base_url, api_key, sessions[7], "热门电视剧")
             assert_route_action("route_recommend_tv", tv_recommend, "mp_recommendations")

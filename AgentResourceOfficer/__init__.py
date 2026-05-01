@@ -662,6 +662,49 @@ class AgentResourceOfficer(_PluginBase):
         source_name, media_type = source_pair
         return {"action": "mp_recommendations", "keyword": source_name, "type": media_type}
 
+    @classmethod
+    def _normalize_mp_recommend_direct_intent(cls, value: Any) -> Dict[str, Any]:
+        raw = cls._clean_text(value)
+        if not raw:
+            return {}
+        prefix_match = cls._match_command_prefix(raw, ["智能发现", "热门发现", "热门推荐", "推荐"])
+        if not prefix_match:
+            return {}
+        _, remain = prefix_match
+        remain = cls._clean_text(remain)
+        if not remain:
+            return {}
+        suffix_aliases: List[Tuple[str, Dict[str, str]]] = [
+            ("资源决策", {"mode": "smart_decision"}),
+            ("智能决策", {"mode": "smart_decision"}),
+            ("查看详情", {"action": "detail"}),
+            ("看详情", {"action": "detail"}),
+            ("确认执行", {"mode": "smart_execute"}),
+            ("直接执行", {"mode": "smart_execute"}),
+            ("生成计划", {"action": "plan"}),
+            ("先计划", {"action": "plan"}),
+            ("详情", {"action": "detail"}),
+            ("决策", {"mode": "smart_decision"}),
+            ("计划", {"action": "plan"}),
+            ("确认", {"mode": "smart_execute"}),
+            ("执行", {"mode": "smart_execute"}),
+            ("盘搜", {"mode": "pansou"}),
+            ("影巢", {"mode": "hdhive"}),
+            ("原生", {"mode": "mp"}),
+        ]
+        for suffix, action_payload in suffix_aliases:
+            separator = f" {suffix}"
+            if remain.endswith(separator):
+                keyword = cls._clean_text(remain[: -len(separator)])
+            elif remain == suffix:
+                keyword = ""
+            else:
+                continue
+            if not keyword:
+                return {}
+            return {"keyword": keyword, "index": 1, **action_payload}
+        return {}
+
     @staticmethod
     def _normalize_pick_mode(value: Any) -> str:
         text = str(value or "").strip().lower()
@@ -17609,6 +17652,33 @@ class AgentResourceOfficer(_PluginBase):
                     "prefer_unexecuted": True,
                     "stop_on_error": self._parse_bool_value(body.get("stop_on_error"), True),
                     "include_raw_results": self._parse_bool_value(body.get("include_raw_results"), False),
+                    "compact": compact,
+                    "apikey": self._extract_apikey(request, body),
+                })
+            ))
+
+        recommend_direct_intent = self._normalize_mp_recommend_direct_intent(text)
+        if recommend_direct_intent:
+            source_name, inferred_media_type = self._normalize_mp_recommend_request(
+                recommend_direct_intent.get("keyword") or "tmdb_trending"
+            )
+            recommend_result = await self._assistant_mp_recommendations(
+                source=source_name,
+                media_type=self._clean_text(body.get("media_type") or body.get("type") or inferred_media_type or "all"),
+                limit=self._safe_int(body.get("limit"), 20),
+                session=session,
+                cache_key=cache_key,
+            )
+            if not recommend_result.get("success"):
+                return finish(recommend_result)
+            return finish(await self.api_assistant_pick(
+                _JsonRequestShim(request, {
+                    "session": session,
+                    "session_id": cache_key,
+                    "index": recommend_direct_intent.get("index") or 1,
+                    "action": recommend_direct_intent.get("action"),
+                    "mode": recommend_direct_intent.get("mode"),
+                    "path": self._resolve_pan_path_value(self._clean_text(body.get("path") or body.get("target_path"))),
                     "compact": compact,
                     "apikey": self._extract_apikey(request, body),
                 })

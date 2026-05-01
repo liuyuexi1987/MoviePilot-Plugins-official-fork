@@ -272,6 +272,10 @@ python3 <SKILL_HOME>/agent-resource-officer/scripts/aro_request.py external-agen
 - `选择 1 计划`
 - `选择 1 确认`
 - `详情 1`
+- 也支持单句直达当前榜单首项：
+  - `智能发现 热门电影 详情`
+  - `智能发现 热门电影 计划`
+  - `智能发现 热门电影 确认`
 - 也支持直接对当前榜单首项继续发：
   - `详情`
   - `计划`
