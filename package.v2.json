@@ -38,11 +38,12 @@
     "name": "Agent影视助手",
     "description": "统一承接影巢搜索/解锁、115 转存、夸克转存、飞书入口与智能体接口的资源工作流主插件。",
     "labels": "Agent,影巢,HDHive,115,夸克,Quark,智能体,转存,解锁",
-    "version": "0.2.67",
+    "version": "0.2.68",
     "icon": "agentresourceofficer.png",
     "author": "liuyuexi1987",
     "level": 1,
     "history": {
+      "0.2.68": "收口云盘搜索/转存/影巢签到恢复链：固定“转存/下载/云盘搜索/更新检查”口径，补齐 115/夸克默认目录清理、影巢立即签到与 Cookie 一键修复命令，并同步主页与 Skill 文档。",
       "0.2.67": "收口外部智能体入口细节：隐藏 workbuddy_quickstart 旧 recipe 展示名，为 external-agent / commands 增加 deprecated alias 语义，并统一当前状态文档。",
       "0.2.66": "为 request_templates 增加三类入口的 entry_playbooks，直接给出 helper 命令、HTTP 端点、Tool 名称和推荐读取字段，进一步减少外部智能体与 MP 内置智能体的接入编排逻辑。",
       "0.2.65": "为 request_templates 和 helper 增加模板编排元数据，明确服务端/客户端角色、三类入口范式，以及 startup -> decide -> route -> followup 的推荐最小执行流。",

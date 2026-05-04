@@ -1014,6 +1014,54 @@ def main() -> int:
             pansou = route(base_url, api_key, sessions[2], f"ps{args.pansou_keyword}")
             assert_route_action("route_pansou_alias", pansou, "pansou_search")
 
+            generic_search = route(base_url, api_key, f"{sessions[2]}-generic-search", f"搜索 {args.pansou_keyword}")
+            assert_route_action("route_generic_search_defaults_pansou", generic_search, "pansou_search")
+
+            cloud_search = route(base_url, api_key, f"{sessions[2]}-cloud-search", f"云盘搜索 {args.keyword}")
+            cloud_search_data = data(cloud_search)
+            assert_ok(
+                "route_cloud_search_alias",
+                bool(cloud_search.get("success") and cloud_search_data.get("ok"))
+                and cloud_search_data.get("action") in {"cloud_search", "pansou_search", "hdhive_candidates", "smart_resource_search"},
+                json.dumps({
+                    "success": cloud_search.get("success"),
+                    "ok": cloud_search_data.get("ok"),
+                    "action": cloud_search_data.get("action"),
+                    "message": message_text(cloud_search)[:160],
+                }, ensure_ascii=False),
+            )
+            checked_sources = [str((item or {}).get("source_type") or "") for item in (cloud_search_data.get("sources_checked") or [])]
+            if checked_sources:
+                assert_ok(
+                    "route_cloud_search_sources_only_cloud",
+                    set(checked_sources).issubset({"pansou", "hdhive"}) and "mp_pt" not in checked_sources,
+                    json.dumps(cloud_search_data.get("sources_checked") or [], ensure_ascii=False)[:240],
+                )
+
+            update_check = route(base_url, api_key, f"{sessions[2]}-update-check", f"更新检查 {args.keyword}")
+            update_check_data = assert_route_action("route_update_check", update_check, "update_check")
+            update_message = message_text(update_check)
+            assert_ok(
+                "route_update_check_lists_channels",
+                "盘搜：" in update_message and "影巢：" in update_message,
+                update_message[:240],
+            )
+            assert_ok(
+                "route_update_check_lists_latest_candidates",
+                ("盘搜最新集资源：" in update_message or "盘搜最近资源日期：" in update_message or "盘搜：暂无可识别更新结果" in update_message)
+                and ("影巢最新集资源：" in update_message or "影巢最近资源时间：" in update_message or "影巢：暂无可识别更新结果" in update_message or "影巢：未识别到集数" in update_message),
+                update_message[:320],
+            )
+            assert_ok(
+                "route_update_check_decision_summary",
+                isinstance(update_check_data.get("decision_summary"), dict)
+                and bool((update_check_data.get("decision_summary") or {}).get("preferred_command")),
+                json.dumps(update_check_data.get("decision_summary") or {}, ensure_ascii=False)[:240],
+            )
+
+            pt_search = route(base_url, api_key, f"{sessions[1]}-pt-search", f"PT搜索 {args.keyword}")
+            assert_route_action("route_pt_search_alias", pt_search, "mp_media_search")
+
             hdhive = route(base_url, api_key, sessions[3], f"yc{args.keyword}")
             assert_route_action("route_hdhive_alias", hdhive, "hdhive_candidates")
 
@@ -1294,10 +1342,14 @@ def main() -> int:
             movie_to_pansou = route(base_url, api_key, sessions[6], "选择 1 盘搜")
             movie_to_pansou_data = assert_route_action("route_recommend_to_pansou", movie_to_pansou, "pansou_search")
             assert_ok(
-                "route_recommend_to_pansou_scored",
-                bool((movie_to_pansou_data.get("score_summary") or {}).get("best"))
-                and isinstance(((movie_to_pansou_data.get("score_summary") or {}).get("decision") or {}).get("recommended_commands"), list),
-                json.dumps(movie_to_pansou_data.get("score_summary") or {}, ensure_ascii=False)[:240],
+                "route_recommend_to_pansou_entry_mode",
+                bool(movie_to_pansou_data.get("preferred_command"))
+                and isinstance(movie_to_pansou_data.get("compact_commands") or [], list),
+                json.dumps({
+                    "preferred_command": movie_to_pansou_data.get("preferred_command"),
+                    "compact_commands": movie_to_pansou_data.get("compact_commands"),
+                    "score_summary": movie_to_pansou_data.get("score_summary"),
+                }, ensure_ascii=False)[:240],
             )
             smart_discovery = route(base_url, api_key, sessions[8], "智能发现 热门电影")
             assert_route_action("route_smart_discovery", smart_discovery, "mp_recommendations")

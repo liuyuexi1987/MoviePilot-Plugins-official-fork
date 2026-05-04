@@ -2,7 +2,9 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -12,7 +14,7 @@ CONFIG_PATH = os.path.expanduser(CONFIG_PATH_DISPLAY)
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXTERNAL_AGENT_GUIDE_PATH = os.path.join(SKILL_DIR, "EXTERNAL_AGENTS.md")
 WORKBUDDY_GUIDE_PATH = EXTERNAL_AGENT_GUIDE_PATH
-HELPER_VERSION = "0.1.40"
+HELPER_VERSION = "0.1.41"
 HELPER_COMMANDS = [
     "auto",
     "commands",
@@ -42,6 +44,8 @@ HELPER_COMMANDS = [
     "plans",
     "plans-clear",
     "raw",
+    "hdhive-cookie-refresh",
+    "hdhive-checkin-repair",
     "version",
     "external-agent",
     "workbuddy",
@@ -56,6 +60,10 @@ WRITE_WORKFLOWS = {
     "mp_subscribe_control",
     "mp_subscribe_and_search",
 }
+HDHIVE_COOKIE_TOOL_DIR_CANDIDATES = [
+    os.path.expanduser("~/Services/工具项目/影巢Cookie导出 YingChaoCookieExport"),
+    "/Users/jans/Services/工具项目/影巢Cookie导出 YingChaoCookieExport",
+]
 
 
 def read_config():
@@ -90,6 +98,160 @@ def config_source(config, *names):
         if config.get(name):
             return f"config:{name}"
     return ""
+
+
+def cookie_tool_setting(config, key, default=""):
+    value = os.environ.get(key) or config.get(key) or default
+    return str(value or "").strip()
+
+
+def sanitize_cookie_tool_text(text):
+    safe_lines = []
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lowered = line.lower()
+        if "token=" in lowered or "csrf_access_token" in lowered or "refresh_token" in lowered:
+            continue
+        safe_lines.append(line)
+    return "\n".join(safe_lines)
+
+
+def resolve_hdhive_cookie_tool_dir(config):
+    explicit = cookie_tool_setting(config, "ARO_HDHIVE_COOKIE_EXPORT_DIR")
+    candidates = [explicit] if explicit else []
+    candidates.extend(HDHIVE_COOKIE_TOOL_DIR_CANDIDATES)
+    for candidate in candidates:
+        if candidate and os.path.isdir(candidate):
+            return candidate
+    return ""
+
+
+def resolve_hdhive_cookie_tool_runtime(config):
+    tool_dir = resolve_hdhive_cookie_tool_dir(config)
+    if not tool_dir:
+        return {}
+    script_path = os.path.join(tool_dir, "export_yc_cookie.py")
+    if not os.path.exists(script_path):
+        return {}
+    python_bin = cookie_tool_setting(config, "ARO_HDHIVE_COOKIE_EXPORT_PYTHON")
+    if not python_bin:
+        venv_python = os.path.join(tool_dir, ".venv", "bin", "python")
+        python_bin = venv_python if os.path.exists(venv_python) else sys.executable
+    return {
+        "tool_dir": tool_dir,
+        "script_path": script_path,
+        "python_bin": python_bin,
+        "site_url": cookie_tool_setting(config, "ARO_HDHIVE_COOKIE_SITE_URL", "https://hdhive.com"),
+        "browser": cookie_tool_setting(config, "ARO_HDHIVE_COOKIE_BROWSER", "edge"),
+        "restart_container": cookie_tool_setting(config, "ARO_HDHIVE_COOKIE_RESTART_CONTAINER", "moviepilot-v2"),
+    }
+
+
+def run_hdhive_cookie_refresh(config):
+    runtime = resolve_hdhive_cookie_tool_runtime(config)
+    if not runtime:
+        return {
+            "success": False,
+            "message": "未找到影巢 Cookie 导出工具，请先配置 ARO_HDHIVE_COOKIE_EXPORT_DIR。",
+        }
+    cmd = [
+        runtime["python_bin"],
+        runtime["script_path"],
+        runtime["site_url"],
+        "--browser",
+        runtime["browser"],
+        "--write-mp",
+        "--restart-container",
+        runtime["restart_container"],
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=runtime["tool_dir"],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"运行影巢 Cookie 导出工具失败：{exc}",
+            "tool_dir": runtime["tool_dir"],
+            "script_path": runtime["script_path"],
+            "python_bin": runtime["python_bin"],
+        }
+    stdout = (proc.stdout or "").strip()
+    stderr = (proc.stderr or "").strip()
+    safe_stdout = sanitize_cookie_tool_text(stdout)
+    safe_stderr = sanitize_cookie_tool_text(stderr)
+    lines = [line.strip() for line in safe_stderr.splitlines() if line.strip()]
+    return {
+        "success": proc.returncode == 0,
+        "message": lines[-1] if lines else ("影巢 Cookie 已刷新并写回 MoviePilot。" if proc.returncode == 0 else ""),
+        "returncode": proc.returncode,
+        "tool_dir": runtime["tool_dir"],
+        "script_path": runtime["script_path"],
+        "python_bin": runtime["python_bin"],
+        "browser": runtime["browser"],
+        "site_url": runtime["site_url"],
+        "restart_container": runtime["restart_container"],
+        "stdout": safe_stdout,
+        "stderr": safe_stderr,
+    }
+
+
+def run_hdhive_checkin_repair(base_url, api_key, config, session="", session_id=""):
+    refresh = run_hdhive_cookie_refresh(config)
+    result = {
+        "success": False,
+        "helper_version": HELPER_VERSION,
+        "action": "hdhive_checkin_repair",
+        "refresh": refresh,
+    }
+    if not refresh.get("success"):
+        result["message"] = refresh.get("message") or "影巢 Cookie 刷新失败"
+        return result, 2
+    time.sleep(3)
+    for _ in range(6):
+        try:
+            selfcheck = request(base_url, api_key, "GET", assistant_path("selfcheck"))
+            selfcheck_compact = compact(selfcheck)
+            if bool((selfcheck_compact or {}).get("ok") or (selfcheck_compact or {}).get("success")):
+                break
+        except Exception:
+            pass
+        time.sleep(3)
+    body = {"text": "影巢签到", "compact": True}
+    if session:
+        body["session"] = session
+    if session_id:
+        body["session_id"] = session_id
+    last_error = ""
+    checkin = None
+    for attempt in range(6):
+        try:
+            checkin = request(base_url, api_key, "POST", assistant_path("route"), body=body)
+            break
+        except Exception as exc:
+            last_error = str(exc)
+            if attempt < 5:
+                time.sleep(3)
+            else:
+                result["message"] = f"影巢 Cookie 已刷新，但签到重试失败：{last_error}"
+                result["checkin"] = {"success": False, "message": last_error}
+                return result, 2
+    checkin_compact = compact(checkin)
+    result["checkin"] = checkin_compact
+    result["message"] = (
+        (checkin_compact or {}).get("message")
+        or ((checkin_compact or {}).get("followup_summary") or {}).get("message")
+        or refresh.get("message")
+        or ""
+    )
+    result["success"] = bool((checkin_compact or {}).get("success"))
+    return result, 0 if result["success"] else 2
 
 
 def load_json_arg(value):
@@ -1383,6 +1545,8 @@ def commands_catalog():
             {"name": "plans", "network": True, "writes": False, "write_condition": "", "purpose": "list saved workflow plans"},
             {"name": "plans-clear", "network": True, "writes": True, "write_condition": "clears saved plans matching --plan-id, session filters, --executed, or --all-plans", "purpose": "clear saved workflow plans"},
             {"name": "raw", "network": True, "writes": True, "write_condition": "depends on method, path, and JSON body", "purpose": "call a raw assistant endpoint for debugging"},
+            {"name": "hdhive-cookie-refresh", "network": False, "writes": True, "write_condition": "reads local browser cookies and writes them back to MoviePilot config", "purpose": "refresh HDHive webpage cookie from the host browser export tool"},
+            {"name": "hdhive-checkin-repair", "network": True, "writes": True, "write_condition": "refreshes HDHive webpage cookie, restarts moviepilot-v2, then retries one HDHive check-in", "purpose": "repair HDHive check-in by refreshing browser cookie and immediately retrying sign-in"},
         ],
     }
 
@@ -1468,8 +1632,30 @@ def main():
         return run_selftest()
 
     config = read_config()
+    if args.command == "hdhive-cookie-refresh":
+        result = run_hdhive_cookie_refresh(config)
+        result["helper_version"] = HELPER_VERSION
+        result["action"] = "hdhive_cookie_refresh"
+        print_json(result)
+        return 0 if result.get("success") else 2
     base_url = args.base_url or config_value(config, "ARO_BASE_URL", "MP_BASE_URL", "MOVIEPILOT_URL")
     api_key = args.api_key or config_value(config, "ARO_API_KEY", "MP_API_TOKEN")
+    if args.command == "hdhive-checkin-repair":
+        if not base_url:
+            print("ARO_BASE_URL / MP_BASE_URL / MOVIEPILOT_URL is not set", file=sys.stderr)
+            return 2
+        if not api_key:
+            print("ARO_API_KEY / MP_API_TOKEN is not set", file=sys.stderr)
+            return 2
+        result, status = run_hdhive_checkin_repair(
+            base_url,
+            api_key,
+            config,
+            session=args.session or "",
+            session_id=args.session_id or "",
+        )
+        print_json(result)
+        return status
     if args.command == "config-check":
         result = {
             "success": bool(base_url and api_key),

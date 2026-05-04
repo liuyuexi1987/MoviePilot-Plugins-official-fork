@@ -456,6 +456,9 @@ class P115TransferService:
         }, message
 
     def _get_or_create_path_cid(self, client: Any, path: str) -> int:
+        return self._get_path_cid(client, path, create=True)
+
+    def _get_path_cid(self, client: Any, path: str, *, create: bool = True) -> int:
         target_path = self.normalize_pan_path(path) or "/"
         if target_path == "/":
             return 0
@@ -469,6 +472,9 @@ class P115TransferService:
         except Exception:
             pass
 
+        if not create:
+            return -1
+
         try:
             resp = client.fs_makedirs_app(target_path, pid=0, **mkdir_kwargs)
             cid = self._safe_int(resp.get("cid") if isinstance(resp, dict) else None, -1)
@@ -481,6 +487,153 @@ class P115TransferService:
             raise RuntimeError(self._response_error(resp))
         except Exception as exc:
             raise RuntimeError(f"无法创建或定位 115 目录 {target_path}: {exc}") from exc
+
+    def list_directory_current_layer(self, path: str = "") -> Tuple[bool, Dict[str, Any], str]:
+        target_path = self.normalize_pan_path(path) or self.default_target_path or "/待整理"
+        result = {
+            "time": self.tz_now().strftime("%Y-%m-%d %H:%M:%S"),
+            "ok": False,
+            "path": target_path,
+            "items": [],
+            "file_count": 0,
+            "folder_count": 0,
+            "removed_count": 0,
+            "message": "",
+        }
+        client, source, client_error = self.get_direct_client()
+        if not client:
+            result["message"] = client_error or "没有可用的 115 客户端"
+            result["direct_source"] = source
+            return False, result, result["message"]
+
+        cid = self._get_path_cid(client, target_path, create=False)
+        if cid < 0:
+            result["ok"] = True
+            result["direct_source"] = source
+            result["message"] = "115 默认目录不存在，视为空目录"
+            return True, result, result["message"]
+
+        payload = {
+            "cid": int(cid),
+            "limit": 1150,
+            "offset": 0,
+            "show_dir": 1,
+            "cur": 1,
+            "count_folders": 1,
+        }
+        items: list[dict[str, Any]] = []
+        total = 0
+        try:
+            while True:
+                resp = client.fs_files(payload, **self._p115_request_kwargs(app=False))
+                if not isinstance(resp, dict):
+                    result["message"] = "读取 115 目录失败：返回内容异常"
+                    result["direct_source"] = source
+                    return False, result, result["message"]
+                batch = resp.get("data") or []
+                total = self._safe_int(resp.get("count"), total)
+                for entry in batch:
+                    if not isinstance(entry, dict):
+                        continue
+                    fid = self._safe_int(entry.get("fid"), -1)
+                    item_cid = self._safe_int(entry.get("cid"), -1)
+                    is_dir = fid < 0
+                    item_id = item_cid if is_dir else fid
+                    if item_id < 0:
+                        continue
+                    items.append(
+                        {
+                            "id": item_id,
+                            "name": self.normalize_text(entry.get("n") or entry.get("fn") or entry.get("file_name")),
+                            "is_dir": is_dir,
+                            "type": "folder" if is_dir else "file",
+                            "raw": entry,
+                        }
+                    )
+                payload["offset"] = int(payload["offset"]) + len(batch)
+                if not batch or len(batch) < int(payload["limit"]) or int(payload["offset"]) >= total:
+                    break
+        except Exception as exc:
+            result["message"] = f"读取 115 目录失败: {exc}"
+            result["direct_source"] = source
+            return False, result, result["message"]
+
+        file_count = len([item for item in items if not item.get("is_dir")])
+        folder_count = len([item for item in items if item.get("is_dir")])
+        result.update(
+            {
+                "ok": True,
+                "direct_source": source,
+                "cid": cid,
+                "items": items,
+                "file_count": file_count,
+                "folder_count": folder_count,
+                "message": "success",
+            }
+        )
+        return True, result, "success"
+
+    def delete_items(self, items: list[dict[str, Any]]) -> Tuple[bool, Dict[str, Any], str]:
+        client, source, client_error = self.get_direct_client()
+        result = {
+            "ok": False,
+            "direct_source": source,
+            "removed_count": 0,
+            "message": "",
+        }
+        if not client:
+            result["message"] = client_error or "没有可用的 115 客户端"
+            return False, result, result["message"]
+
+        ids = [str(self._safe_int(item.get("id"), -1)) for item in items or [] if self._safe_int(item.get("id"), -1) >= 0]
+        if not ids:
+            result.update({"ok": True, "message": "115 默认目录当前层已是空目录"})
+            return True, result, result["message"]
+
+        try:
+            resp = client.fs_delete(ids, **self._p115_request_kwargs(app=False))
+        except Exception as exc:
+            result["message"] = f"删除 115 目录内容失败: {exc}"
+            return False, result, result["message"]
+
+        if not self._response_ok(resp):
+            result["message"] = self._response_error(resp) or "删除 115 目录内容失败"
+            result["raw"] = self.jsonable(resp)
+            return False, result, result["message"]
+
+        result.update(
+            {
+                "ok": True,
+                "removed_count": len(ids),
+                "message": "115 默认目录已清空当前层",
+                "raw": self.jsonable(resp),
+            }
+        )
+        return True, result, result["message"]
+
+    def clear_directory(self, path: str = "") -> Tuple[bool, Dict[str, Any], str]:
+        target_path = self.normalize_pan_path(path) or self.default_target_path or "/待整理"
+        listed_ok, listed_result, listed_message = self.list_directory_current_layer(target_path)
+        if not listed_ok:
+            return False, listed_result, listed_message
+
+        items = listed_result.get("items") or []
+        if not items:
+            listed_result["message"] = "115 默认目录当前层已是空目录"
+            return True, listed_result, listed_result["message"]
+
+        delete_ok, delete_result, delete_message = self.delete_items(items)
+        merged = dict(listed_result)
+        merged.update(
+            {
+                "ok": delete_ok,
+                "removed_count": delete_result.get("removed_count", 0),
+                "direct_source": delete_result.get("direct_source", listed_result.get("direct_source")),
+                "delete_raw": delete_result.get("raw"),
+                "message": delete_message,
+            }
+        )
+        return delete_ok, merged, delete_message
 
     def transfer_share_direct(
         self,

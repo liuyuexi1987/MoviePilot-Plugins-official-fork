@@ -48,6 +48,11 @@ Environment overrides:
 - `MOVIEPILOT_URL`
 - `ARO_API_KEY`
 - `MP_API_TOKEN`
+- `ARO_HDHIVE_COOKIE_EXPORT_DIR`
+- `ARO_HDHIVE_COOKIE_EXPORT_PYTHON`
+- `ARO_HDHIVE_COOKIE_BROWSER`
+- `ARO_HDHIVE_COOKIE_SITE_URL`
+- `ARO_HDHIVE_COOKIE_RESTART_CONTAINER`
 
 Never print API keys, cookies, or tokens back to the user.
 
@@ -75,6 +80,8 @@ python3 scripts/aro_request.py feishu-health
 python3 scripts/aro_request.py recover --summary-only
 python3 scripts/aro_request.py version
 python3 scripts/aro_request.py selftest
+python3 scripts/aro_request.py hdhive-cookie-refresh
+python3 scripts/aro_request.py hdhive-checkin-repair
 python3 scripts/aro_request.py commands
 python3 scripts/aro_request.py external-agent
 python3 scripts/aro_request.py external-agent --full
@@ -121,6 +128,42 @@ python3 scripts/aro_request.py external-agent --full
 
 `external-agent` prints the compact prompt and minimal tool contract. `external-agent --full` prints the full bundled handoff guide. `workbuddy` remains a compatibility alias only; new integrations should use `external-agent`.
 
+When a user says plain `搜索 <片名>` or `找 <片名>`, pass that text through to `route` first. Do not guess that the user meant HDHive, and do not continue an old result session by sending `选择 1` unless the user actually chose an item in the current round. Default plain search should start from PanSou.
+
+When a user says `转存 <片名>`, route that text directly first. Treat it as a cloud-transfer intent: prefer PanSou + HDHive, and let AgentResourceOfficer execute the one-stop transfer flow instead of rewriting it into a PT download request.
+
+When a user says `下载 <片名>`, route that text directly first. Treat it as an MP/PT direct-download intent: prefer MoviePilot native PT search/download, and do not silently rewrite it into a cloud-drive transfer request.
+
+When a user says `云盘搜索 <片名>`, route that exact text first. Do not silently replace it with `盘搜搜索 <片名>`. Cloud search is a distinct entry that should compare PanSou and HDHive together; if HDHive stays ambiguous, preserve the plugin's own `影巢结果` hint instead of collapsing everything into a PanSou-only recommendation.
+
+When a user says `更新 <片名>`, `更新检查 <片名>`, `查更新 <片名>`, or `检查 <片名>`, route that text directly first and treat it as the update-check entry. Do not clear the session first, do not guess that the user meant HDHive candidate search, and do not replace it with a generic search flow. The update flow should first show official reference progress plus PanSou and HDHive latest-episode resources, then let the user choose a numbered resource if needed.
+
+When a user says `刷新影巢Cookie`, do not route that phrase into AgentResourceOfficer. Treat it as a host-side repair action and run:
+
+```bash
+python3 scripts/aro_request.py hdhive-cookie-refresh
+```
+
+This command exports the current HDHive webpage cookie from the local browser, writes it back into MoviePilot and AgentResourceOfficer, and restarts `moviepilot-v2`.
+
+When a user says `修复影巢签到`, do not route that phrase directly. Run:
+
+```bash
+python3 scripts/aro_request.py hdhive-checkin-repair
+```
+
+This command refreshes the HDHive webpage cookie from the local browser export tool, restarts `moviepilot-v2`, then retries one HDHive sign-in through AgentResourceOfficer.
+
+When `影巢签到` or `影巢签到日志` clearly shows cookie/login failure, prefer the automatic repair flow instead of asking the user to hand-copy cookies. First remind the user to ensure they are logged into `https://hdhive.com` in Edge, then run `hdhive-checkin-repair`, and finally show the new sign-in result.
+
+For ordinary search, cloud search, HDHive resource lists, and update-check lists, preserve the plugin's original numbering exactly. Do not reformat a numbered resource list into unnumbered prose, do not collapse numbered items into a separate summary, and do not move the actionable numbers only into a later recommendation paragraph.
+
+For cloud search results, prefer the plugin's raw combined layout: keep the `盘搜结果` section, keep the `影巢结果` section, and keep raw links when the plugin returned them. Do not rewrite the answer into a guide like “最佳选择/推荐资源/分析结论/要不要我帮你下载”, and do not hide the source-specific sections behind your own summary.
+
+For cloud search, never renumber items per source in your own prose. If the plugin returned global numbering like `1..16` plus `17..24`, preserve that exact numbering. Do not convert it into separate `115 1..6 / 夸克 1..10` local indices, and do not collapse the response into a custom “标题/画质/日期/链接” table that drops the plugin's next-step instructions.
+
+When a Quark transfer fails, do not invent a path diagnosis unless the plugin explicitly said so. If the plugin only returned `夸克转存失败：无法转存到 /飞书`, treat the cause as unknown and do not add guesses like “默认转存目录不存在” or “换成 path=/ 试试” on your own. Only recommend a different path when the plugin itself clearly pointed to a path problem or the user explicitly asked to try another path.
+
 Use `config-check` to verify connection settings without printing secrets:
 
 ```bash
@@ -132,6 +175,50 @@ Use `readiness` after configuration to run config check, local selftest, and liv
 ```bash
 python3 scripts/aro_request.py readiness
 ```
+
+Update-check examples:
+
+```bash
+python3 scripts/aro_request.py route "更新 大君夫人"
+python3 scripts/aro_request.py route "更新检查 大君夫人"
+python3 scripts/aro_request.py route "检查 大君夫人"
+```
+
+Quark cleanup examples:
+
+```bash
+python3 scripts/aro_request.py route "清空夸克默认转存目录"
+python3 scripts/aro_request.py route "清空夸克默认目录"
+```
+
+Use Quark cleanup only when the user explicitly asked to clear the Quark default transfer directory. Treat it as a destructive cloud-drive write. It targets the current layer entries of the configured Quark default directory: files are deleted directly, and current-layer folders are deleted together with their contents. Do not infer it from vague cleanup requests, do not silently replace it with 115 cleanup, and do not grep helper source to decide whether this command is supported.
+
+115 cleanup examples:
+
+```bash
+python3 scripts/aro_request.py route "清空115转存目录"
+python3 scripts/aro_request.py route "清空115默认转存目录"
+python3 scripts/aro_request.py route "清空115默认目录"
+```
+
+Use 115 cleanup only when the user explicitly asked to clear the 115 default transfer directory. Treat it as a destructive cloud-drive write. It targets the current layer entries of the configured 115 default directory: files are deleted directly, and current-layer folders are deleted together with their contents. Do not grep helper source to decide whether this command is supported; route the original phrase directly.
+
+For update requests, do not start with:
+
+```bash
+python3 scripts/aro_request.py session-clear default
+python3 scripts/aro_request.py route "影巢搜索 大君夫人"
+```
+
+unless the user explicitly asked to abandon the current state or explicitly asked for HDHive-only search.
+
+For ordinary search and update requests, do not start with:
+
+```bash
+python3 scripts/aro_request.py session-clear default
+```
+
+unless the user explicitly asked to clear or reset the session.
 
 Use `feishu-health` only when diagnosing the built-in AgentResourceOfficer Feishu Channel:
 
@@ -397,7 +484,9 @@ After an MP search session, `下载最佳` generates a saved download plan for t
 
 Even if a PT candidate scores high, the current default interaction policy is still `plan_id` first. Treat `can_auto_execute` as a score signal for explanation only; do not assume `下载1` or `下载最佳` will bypass confirmation.
 
-For cloud-drive result sessions, `最佳片源` is read-only. It returns the highest-scoring PanSou or HDHive resource detail and must not transfer or unlock by itself. `选择 N 详情` is also read-only. Prefer `计划选择 N` for PanSou transfer or HDHive unlock when an external agent is acting for the user; it returns a saved `plan_id` and performs no write action until the plan is executed. Use direct `选择 N` only after the user explicitly confirms immediate transfer/unlock.
+For cloud-drive result sessions, `最佳片源` is read-only. It returns the highest-scoring PanSou or HDHive resource detail and must not transfer or unlock by itself. `选择 N 详情` is also read-only. For ordinary `搜索/找 <片名>` sessions, prefer direct numbered picks first and use `计划选择 N` only when the user explicitly wants a saved confirmation plan. Use direct `选择 N` for immediate transfer/unlock after the user confirms that intent.
+
+For ordinary `搜索/找 <片名>` sessions, do not re-summarize the returned list into your own “resource status”, “recommended shortlist”, “费用/评分/推荐星级”, or “要现在下载吗？” style output. Prefer relaying the plugin's original numbered list and next-step hints. If you must add one short sentence, keep it to a plain observation such as “夸克前几条已经更新到 E08” and do not replace the original list body.
 
 `mp_recommend_search` is the low-token recommendation chain. Without `choice`, it returns a recommendation list and stores the session. With `choice`, it immediately continues the selected title into `mode=mp`, `mode=hdhive`, or `mode=pansou`.
 

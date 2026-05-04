@@ -20,15 +20,37 @@ docs/INDEX.md
 ## 当前状态
 
 - 当前推荐主线插件：`Agent影视助手`（插件 ID：`AgentResourceOfficer`）
-- 当前发布版本：`0.2.67`
-- 当前 Skill helper 版本：`0.1.40`
-- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.67>
+- 当前发布版本：`0.2.68`
+- 当前 Skill helper 版本：`0.1.41`
+- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.68>
 - 当前安装说明：[`docs/PLUGIN_INSTALL.md`](./docs/PLUGIN_INSTALL.md)
 - 当前外部智能体接入：[`docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md`](./docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md)
 - 当前跨机器部署：[`docs/AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md`](./docs/AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md)
 - 当前维护入口：先看 [`docs/INDEX.md`](./docs/INDEX.md)；如需命令速查，直接看 [`docs/MAINTENANCE_COMMANDS.md`](./docs/MAINTENANCE_COMMANDS.md)；日常仓库维护运行 `bash scripts/repo-hygiene.sh`，发版前完整检查运行 `bash scripts/release-preflight.sh`
 
 如果你只想快速落地，不要先看历史重构文档，直接从上面 4 个入口开始。
+
+## 本阶段收口重点
+
+- 搜索口径收口：
+  - `搜索 <片名>` / `找 <片名>` 默认先走盘搜
+  - `云盘搜索 <片名>` 固定走 `盘搜 + 影巢`
+  - `影巢搜索 <片名>` 只走影巢
+  - `MP搜索 <片名>` / `PT搜索 <片名>` 只走 MoviePilot 原生 PT
+- 执行动作收口：
+  - `转存 <片名>` 走云盘资源一条龙转存
+  - `下载 <片名>` 走 MP/PT 直接下载
+  - `夸克转存 <片名>` / `115转存 <片名>` 可强制指定目标网盘
+- 更新入口收口：
+  - 推荐使用 `更新检查 <片名>` / `检查 <片名>`
+  - 统一展示官方参考进度、盘搜最新集资源、影巢最新集资源
+- 维护入口收口：
+  - `清空115转存目录`
+  - `清空夸克转存目录`
+  - `影巢签到`
+  - `影巢签到日志`
+  - `刷新影巢Cookie`
+  - `修复影巢签到`
 
 ## 快速开始
 
@@ -56,6 +78,14 @@ AI识别增强
 115 默认目录
 夸克 Cookie 或 CookieCloud
 飞书 App 信息（可选）
+```
+
+如果后面遇到影巢签到失效，不建议手工复制 Cookie。推荐恢复路径是：
+
+```text
+1. 在 Edge 登录 https://hdhive.com
+2. 运行“影巢Cookie导出.command”自动写回
+3. 再执行“影巢签到”或在插件页勾选“立即运行一次”
 ```
 
 5. 如果要接 WorkBuddy、OpenClaw（小龙虾）、Hermes 或其他外部智能体，把下面文档发给它，让它创建或安装自己的 Skill：
