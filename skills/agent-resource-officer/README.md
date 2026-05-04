@@ -2,11 +2,11 @@
 
 公开版 AgentResourceOfficer Skill 模板，用来让外部智能体通过 MoviePilot 插件接口控制 115 云盘、夸克云盘等云盘资源工作流。插件是服务端执行层；Skill/helper 是客户端调度层。
 
-当前 helper 版本：`0.1.41`
+当前 helper 版本：`0.1.42`
 
 ## 当前状态
 
-- 当前插件版本：`Agent影视助手 0.2.67`
+- 当前插件版本：`Agent影视助手 0.2.68`
 - 当前最小循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
 - 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
 - 当前 AI 失败样本只读诊断入口：
@@ -47,6 +47,10 @@
   - `python3 scripts/aro_request.py hdhive-cookie-refresh`
   - `python3 scripts/aro_request.py hdhive-checkin-repair`
   - 推荐做法：先确保 Edge 已登录 `https://hdhive.com`，再用上面两条命令自动写回完整 Cookie，不要手工复制 Cookie
+- 当前夸克登录修复入口：
+  - `python3 scripts/aro_request.py quark-cookie-refresh`
+  - `python3 scripts/aro_request.py quark-transfer-repair`
+  - 推荐做法：先确保 Edge 已登录 `https://pan.quark.cn`，登录态失效时优先刷新 Cookie；只有明确是 `require login [guest]` 这类登录态问题时才自动修复
 
 公开仓库：
 
@@ -89,6 +93,7 @@ bash install.sh --target /path/to/skills/agent-resource-officer
 ARO_BASE_URL=http://127.0.0.1:3000
 ARO_API_KEY=your_moviepilot_api_token
 ARO_HDHIVE_COOKIE_EXPORT_DIR=/Users/jans/Services/工具项目/影巢Cookie导出 YingChaoCookieExport
+ARO_QUARK_COOKIE_EXPORT_DIR=/Users/jans/Services/工具项目/夸克Cookie导出 QuarkCookieExport
 ```
 
 `ARO_BASE_URL` 按实际部署填写：同机可以用 `http://127.0.0.1:3000`，局域网可以用 `http://你的局域网IP:3000`，公网反代可以用自己的 HTTPS 域名。
@@ -101,6 +106,11 @@ ARO_HDHIVE_COOKIE_EXPORT_PYTHON=/绝对路径/python
 ARO_HDHIVE_COOKIE_BROWSER=edge
 ARO_HDHIVE_COOKIE_SITE_URL=https://hdhive.com
 ARO_HDHIVE_COOKIE_RESTART_CONTAINER=moviepilot-v2
+ARO_QUARK_COOKIE_EXPORT_DIR=/绝对路径/夸克Cookie导出 QuarkCookieExport
+ARO_QUARK_COOKIE_EXPORT_PYTHON=/绝对路径/python
+ARO_QUARK_COOKIE_BROWSER=edge
+ARO_QUARK_COOKIE_SITE_URL=https://pan.quark.cn
+ARO_QUARK_COOKIE_RESTART_CONTAINER=moviepilot-v2
 ```
 
 `route` 支持两种写法：
@@ -149,6 +159,16 @@ python3 scripts/aro_request.py hdhive-checkin-repair
 ```
 
 前者会从本机浏览器导出完整网页 Cookie 并自动写回 MoviePilot/AgentResourceOfficer；后者会在刷新 Cookie 后直接再跑一次 `影巢签到`。当 `影巢签到` 或 `影巢签到日志` 明确提示网页登录态失效时，优先使用这两条命令，不要手工复制 Cookie。
+
+夸克 Cookie 刷新与转存修复：
+
+```bash
+python3 scripts/aro_request.py quark-cookie-refresh
+python3 scripts/aro_request.py quark-transfer-repair
+python3 scripts/aro_request.py quark-transfer-repair --retry-text "选择 7" --session default
+```
+
+前者会从本机浏览器导出夸克 Cookie 并自动写回 `AgentResourceOfficer` / `QuarkShareSaver`；后者会在刷新 Cookie 后检查夸克健康状态，必要时还能顺手重试一条刚才失败的转存命令。只有明确报出 `require login [guest]`、`夸克登录态已过期` 这类登录态问题时，才建议走这条修复链；分享受限、分享者封禁等错误不要误判成 Cookie 失效。
 
 `plan-execute` 返回里会保留插件给出的 `recommended_action` 和 `follow_up_hint`。如果不想自己解析下一步，也可以直接执行 `python3 scripts/aro_request.py followup --session 'agent:<会话ID>'`。
 

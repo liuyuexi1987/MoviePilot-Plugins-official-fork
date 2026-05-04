@@ -14,7 +14,7 @@ CONFIG_PATH = os.path.expanduser(CONFIG_PATH_DISPLAY)
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXTERNAL_AGENT_GUIDE_PATH = os.path.join(SKILL_DIR, "EXTERNAL_AGENTS.md")
 WORKBUDDY_GUIDE_PATH = EXTERNAL_AGENT_GUIDE_PATH
-HELPER_VERSION = "0.1.41"
+HELPER_VERSION = "0.1.42"
 HELPER_COMMANDS = [
     "auto",
     "commands",
@@ -46,6 +46,8 @@ HELPER_COMMANDS = [
     "raw",
     "hdhive-cookie-refresh",
     "hdhive-checkin-repair",
+    "quark-cookie-refresh",
+    "quark-transfer-repair",
     "version",
     "external-agent",
     "workbuddy",
@@ -63,6 +65,10 @@ WRITE_WORKFLOWS = {
 HDHIVE_COOKIE_TOOL_DIR_CANDIDATES = [
     os.path.expanduser("~/Services/工具项目/影巢Cookie导出 YingChaoCookieExport"),
     "/Users/jans/Services/工具项目/影巢Cookie导出 YingChaoCookieExport",
+]
+QUARK_COOKIE_TOOL_DIR_CANDIDATES = [
+    os.path.expanduser("~/Services/工具项目/夸克Cookie导出 QuarkCookieExport"),
+    "/Users/jans/Services/工具项目/夸克Cookie导出 QuarkCookieExport",
 ]
 
 
@@ -149,6 +155,37 @@ def resolve_hdhive_cookie_tool_runtime(config):
     }
 
 
+def resolve_quark_cookie_tool_dir(config):
+    explicit = cookie_tool_setting(config, "ARO_QUARK_COOKIE_EXPORT_DIR")
+    candidates = [explicit] if explicit else []
+    candidates.extend(QUARK_COOKIE_TOOL_DIR_CANDIDATES)
+    for candidate in candidates:
+        if candidate and os.path.isdir(candidate):
+            return candidate
+    return ""
+
+
+def resolve_quark_cookie_tool_runtime(config):
+    tool_dir = resolve_quark_cookie_tool_dir(config)
+    if not tool_dir:
+        return {}
+    script_path = os.path.join(tool_dir, "export_quark_cookie.py")
+    if not os.path.exists(script_path):
+        return {}
+    python_bin = cookie_tool_setting(config, "ARO_QUARK_COOKIE_EXPORT_PYTHON")
+    if not python_bin:
+        venv_python = os.path.join(tool_dir, ".venv", "bin", "python")
+        python_bin = venv_python if os.path.exists(venv_python) else sys.executable
+    return {
+        "tool_dir": tool_dir,
+        "script_path": script_path,
+        "python_bin": python_bin,
+        "site_url": cookie_tool_setting(config, "ARO_QUARK_COOKIE_SITE_URL", "https://pan.quark.cn"),
+        "browser": cookie_tool_setting(config, "ARO_QUARK_COOKIE_BROWSER", "edge"),
+        "restart_container": cookie_tool_setting(config, "ARO_QUARK_COOKIE_RESTART_CONTAINER", "moviepilot-v2"),
+    }
+
+
 def run_hdhive_cookie_refresh(config):
     runtime = resolve_hdhive_cookie_tool_runtime(config)
     if not runtime:
@@ -190,6 +227,59 @@ def run_hdhive_cookie_refresh(config):
     return {
         "success": proc.returncode == 0,
         "message": lines[-1] if lines else ("影巢 Cookie 已刷新并写回 MoviePilot。" if proc.returncode == 0 else ""),
+        "returncode": proc.returncode,
+        "tool_dir": runtime["tool_dir"],
+        "script_path": runtime["script_path"],
+        "python_bin": runtime["python_bin"],
+        "browser": runtime["browser"],
+        "site_url": runtime["site_url"],
+        "restart_container": runtime["restart_container"],
+        "stdout": safe_stdout,
+        "stderr": safe_stderr,
+    }
+
+
+def run_quark_cookie_refresh(config):
+    runtime = resolve_quark_cookie_tool_runtime(config)
+    if not runtime:
+        return {
+            "success": False,
+            "message": "未找到夸克 Cookie 导出工具，请先配置 ARO_QUARK_COOKIE_EXPORT_DIR。",
+        }
+    cmd = [
+        runtime["python_bin"],
+        runtime["script_path"],
+        runtime["site_url"],
+        "--browser",
+        runtime["browser"],
+        "--write-mp",
+        "--restart-container",
+        runtime["restart_container"],
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=runtime["tool_dir"],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"运行夸克 Cookie 导出工具失败：{exc}",
+            "tool_dir": runtime["tool_dir"],
+            "script_path": runtime["script_path"],
+            "python_bin": runtime["python_bin"],
+        }
+    stdout = (proc.stdout or "").strip()
+    stderr = (proc.stderr or "").strip()
+    safe_stdout = sanitize_cookie_tool_text(stdout)
+    safe_stderr = sanitize_cookie_tool_text(stderr)
+    lines = [line.strip() for line in safe_stderr.splitlines() if line.strip()]
+    return {
+        "success": proc.returncode == 0,
+        "message": lines[-1] if lines else ("夸克 Cookie 已刷新并写回 MoviePilot。" if proc.returncode == 0 else ""),
         "returncode": proc.returncode,
         "tool_dir": runtime["tool_dir"],
         "script_path": runtime["script_path"],
@@ -251,6 +341,78 @@ def run_hdhive_checkin_repair(base_url, api_key, config, session="", session_id=
         or ""
     )
     result["success"] = bool((checkin_compact or {}).get("success"))
+    return result, 0 if result["success"] else 2
+
+
+def run_quark_transfer_repair(base_url, api_key, config, retry_text="", session="", session_id=""):
+    refresh = run_quark_cookie_refresh(config)
+    result = {
+        "success": False,
+        "helper_version": HELPER_VERSION,
+        "action": "quark_transfer_repair",
+        "refresh": refresh,
+    }
+    if not refresh.get("success"):
+        result["message"] = refresh.get("message") or "夸克 Cookie 刷新失败"
+        return result, 2
+    time.sleep(3)
+    for _ in range(6):
+        try:
+            selfcheck = request(base_url, api_key, "GET", assistant_path("selfcheck"))
+            selfcheck_compact = compact(selfcheck)
+            if bool((selfcheck_compact or {}).get("ok") or (selfcheck_compact or {}).get("success")):
+                break
+        except Exception:
+            pass
+        time.sleep(3)
+    if retry_text:
+        body = {"text": retry_text, "compact": True}
+        if session:
+            body["session"] = session
+        if session_id:
+            body["session_id"] = session_id
+        last_error = ""
+        retried = None
+        for attempt in range(6):
+            try:
+                retried = request(base_url, api_key, "POST", assistant_path("route"), body=body)
+                break
+            except Exception as exc:
+                last_error = str(exc)
+                if attempt < 5:
+                    time.sleep(3)
+                else:
+                    result["message"] = f"夸克 Cookie 已刷新，但转存重试失败：{last_error}"
+                    result["retry"] = {"success": False, "message": last_error}
+                    return result, 2
+        retried_compact = compact(retried)
+        result["retry"] = retried_compact
+        result["message"] = (retried_compact or {}).get("message") or refresh.get("message") or ""
+        result["success"] = bool((retried_compact or {}).get("success"))
+        return result, 0 if result["success"] else 2
+
+    last_error = ""
+    health = None
+    for attempt in range(6):
+        try:
+            health = request(base_url, api_key, "GET", "/api/v1/plugin/AgentResourceOfficer/quark/health")
+            break
+        except Exception as exc:
+            last_error = str(exc)
+            if attempt < 5:
+                time.sleep(3)
+            else:
+                result["message"] = f"夸克 Cookie 已刷新，但健康检查失败：{last_error}"
+                result["health"] = {"success": False, "message": last_error}
+                return result, 2
+    health_compact = compact(health)
+    result["health"] = health_compact
+    payload = data_payload(health)
+    result["success"] = bool((payload or {}).get("quark_cookie_valid"))
+    result["message"] = (
+        (health_compact or {}).get("message")
+        or ("夸克 Cookie 已刷新并通过健康检查。" if result["success"] else "夸克 Cookie 已刷新，但健康检查仍未通过。")
+    )
     return result, 0 if result["success"] else 2
 
 
@@ -1547,6 +1709,8 @@ def commands_catalog():
             {"name": "raw", "network": True, "writes": True, "write_condition": "depends on method, path, and JSON body", "purpose": "call a raw assistant endpoint for debugging"},
             {"name": "hdhive-cookie-refresh", "network": False, "writes": True, "write_condition": "reads local browser cookies and writes them back to MoviePilot config", "purpose": "refresh HDHive webpage cookie from the host browser export tool"},
             {"name": "hdhive-checkin-repair", "network": True, "writes": True, "write_condition": "refreshes HDHive webpage cookie, restarts moviepilot-v2, then retries one HDHive check-in", "purpose": "repair HDHive check-in by refreshing browser cookie and immediately retrying sign-in"},
+            {"name": "quark-cookie-refresh", "network": False, "writes": True, "write_condition": "reads local browser cookies and writes them back to MoviePilot Quark config", "purpose": "refresh Quark webpage cookie from the host browser export tool"},
+            {"name": "quark-transfer-repair", "network": True, "writes": True, "write_condition": "refreshes Quark webpage cookie, restarts moviepilot-v2, then optionally retries one failed Quark transfer command", "purpose": "repair Quark transfer by refreshing browser cookie and rechecking/retrying transfer"},
         ],
     }
 
@@ -1599,6 +1763,7 @@ def main():
     parser.add_argument("--method", default="GET")
     parser.add_argument("--api-path")
     parser.add_argument("--json", dest="json_body")
+    parser.add_argument("--retry-text")
     parser.add_argument(
         "--compact",
         action="store_true",
@@ -1638,6 +1803,12 @@ def main():
         result["action"] = "hdhive_cookie_refresh"
         print_json(result)
         return 0 if result.get("success") else 2
+    if args.command == "quark-cookie-refresh":
+        result = run_quark_cookie_refresh(config)
+        result["helper_version"] = HELPER_VERSION
+        result["action"] = "quark_cookie_refresh"
+        print_json(result)
+        return 0 if result.get("success") else 2
     base_url = args.base_url or config_value(config, "ARO_BASE_URL", "MP_BASE_URL", "MOVIEPILOT_URL")
     api_key = args.api_key or config_value(config, "ARO_API_KEY", "MP_API_TOKEN")
     if args.command == "hdhive-checkin-repair":
@@ -1651,6 +1822,23 @@ def main():
             base_url,
             api_key,
             config,
+            session=args.session or "",
+            session_id=args.session_id or "",
+        )
+        print_json(result)
+        return status
+    if args.command == "quark-transfer-repair":
+        if not base_url:
+            print("ARO_BASE_URL / MP_BASE_URL / MOVIEPILOT_URL is not set", file=sys.stderr)
+            return 2
+        if not api_key:
+            print("ARO_API_KEY / MP_API_TOKEN is not set", file=sys.stderr)
+            return 2
+        result, status = run_quark_transfer_repair(
+            base_url,
+            api_key,
+            config,
+            retry_text=args.retry_text or "",
             session=args.session or "",
             session_id=args.session_id or "",
         )

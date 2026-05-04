@@ -85,6 +85,14 @@
 ```
 
 ```text
+使用 agent-resource-officer skill，刷新夸克Cookie。不要 route 这句话，直接运行 quark-cookie-refresh，把本机浏览器里的 pan.quark.cn 完整 Cookie 写回 MoviePilot 和 AgentResourceOfficer。
+```
+
+```text
+使用 agent-resource-officer skill，修复夸克转存。如果刚才的失败明确是登录态问题，直接运行 quark-transfer-repair；如果你还保留着刚才失败的原始命令（例如“选择 7”或“夸克转存 21世纪大君夫人”），优先运行 quark-transfer-repair --retry-text "<原命令>"，刷新完 Cookie 后自动再试一次。
+```
+
+```text
 使用 agent-resource-officer skill，执行“检查 大君夫人”时，把它当成“更新检查 大君夫人”的简写。不要把它当成普通搜索，也不要走影巢候选。
 ```
 
@@ -98,6 +106,10 @@
 
 ```text
 使用 agent-resource-officer skill，如果“影巢签到”或“影巢签到日志”明确提示网页登录态失效、Cookie 失效、require login 或自动登录拿不到有效 Cookie，先提醒我确认已在 Edge 登录 https://hdhive.com，然后自动执行 hdhive-checkin-repair，再把新的签到结果发给我。不要先让我手工复制 Cookie。
+```
+
+```text
+使用 agent-resource-officer skill，如果夸克转存失败里明确出现“require login [guest]”“夸克登录态已过期”“当前夸克登录态不足”，先提醒我确认已在 Edge 登录 https://pan.quark.cn，然后自动执行 quark-transfer-repair；如果能拿到刚才失败的原始转存命令，就带上 --retry-text 直接重试一次。不要对 41031、分享受限、分享者封禁这类错误误触发 Cookie 修复。
 ```
 
 ```text

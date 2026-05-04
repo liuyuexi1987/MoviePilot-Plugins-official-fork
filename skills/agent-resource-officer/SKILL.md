@@ -53,6 +53,11 @@ Environment overrides:
 - `ARO_HDHIVE_COOKIE_BROWSER`
 - `ARO_HDHIVE_COOKIE_SITE_URL`
 - `ARO_HDHIVE_COOKIE_RESTART_CONTAINER`
+- `ARO_QUARK_COOKIE_EXPORT_DIR`
+- `ARO_QUARK_COOKIE_EXPORT_PYTHON`
+- `ARO_QUARK_COOKIE_BROWSER`
+- `ARO_QUARK_COOKIE_SITE_URL`
+- `ARO_QUARK_COOKIE_RESTART_CONTAINER`
 
 Never print API keys, cookies, or tokens back to the user.
 
@@ -82,6 +87,8 @@ python3 scripts/aro_request.py version
 python3 scripts/aro_request.py selftest
 python3 scripts/aro_request.py hdhive-cookie-refresh
 python3 scripts/aro_request.py hdhive-checkin-repair
+python3 scripts/aro_request.py quark-cookie-refresh
+python3 scripts/aro_request.py quark-transfer-repair
 python3 scripts/aro_request.py commands
 python3 scripts/aro_request.py external-agent
 python3 scripts/aro_request.py external-agent --full
@@ -155,6 +162,24 @@ python3 scripts/aro_request.py hdhive-checkin-repair
 This command refreshes the HDHive webpage cookie from the local browser export tool, restarts `moviepilot-v2`, then retries one HDHive sign-in through AgentResourceOfficer.
 
 When `影巢签到` or `影巢签到日志` clearly shows cookie/login failure, prefer the automatic repair flow instead of asking the user to hand-copy cookies. First remind the user to ensure they are logged into `https://hdhive.com` in Edge, then run `hdhive-checkin-repair`, and finally show the new sign-in result.
+
+When a user says `刷新夸克Cookie`, do not route that phrase into AgentResourceOfficer. Treat it as a host-side repair action and run:
+
+```bash
+python3 scripts/aro_request.py quark-cookie-refresh
+```
+
+This command exports the current Quark webpage cookie from the local browser, writes it back into MoviePilot and AgentResourceOfficer, and restarts `moviepilot-v2`.
+
+When a user says `修复夸克转存`, do not route that phrase directly. Prefer:
+
+```bash
+python3 scripts/aro_request.py quark-transfer-repair --retry-text "<刚才失败的原始转存命令>"
+```
+
+If there is no safe transfer command to retry, run `python3 scripts/aro_request.py quark-transfer-repair` first to refresh the cookie and verify Quark health, then ask the user to retry the original transfer.
+
+Only use the Quark automatic repair flow when the failure clearly points to login/cookie problems, for example `require login [guest]`, `夸克登录态已过期`, or `当前夸克登录态不足`. Do not trigger it for share-link restrictions, deleted links, or ordinary 403/41031 share bans.
 
 For ordinary search, cloud search, HDHive resource lists, and update-check lists, preserve the plugin's original numbering exactly. Do not reformat a numbered resource list into unnumbered prose, do not collapse numbered items into a separate summary, and do not move the actionable numbers only into a later recommendation paragraph.
 

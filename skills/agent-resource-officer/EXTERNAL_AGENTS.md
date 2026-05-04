@@ -10,8 +10,8 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 
 ## 当前接入状态
 
-- 当前插件版本：`Agent影视助手 0.2.67`
-- 当前 helper 版本：`agent-resource-officer 0.1.40`
+- 当前插件版本：`Agent影视助手 0.2.68`
+- 当前 helper 版本：`agent-resource-officer 0.1.42`
 - 当前最小循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
 - 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
 - 当前 AI 识别失败诊断入口：
@@ -392,7 +392,12 @@ POST /api/v1/plugin/AgentResourceOfficer/assistant/pick?apikey={MP_API_TOKEN}
 5. 如果 `影巢签到` 或 `影巢签到日志` 明确提示网页登录态失效、Cookie 失效、require login 或自动登录拿不到有效 Cookie，优先执行：
    - `python3 scripts/aro_request.py hdhive-checkin-repair`
    在这之前只需要提醒用户先确认已经在 Edge 登录 `https://hdhive.com`。不要让用户手工复制 Cookie 到聊天里。
-6. 不要让用户提供 Cookie、Token、API Key 到聊天里。
+6. 如果夸克失败里明确提示 `require login [guest]`、`夸克登录态已过期` 或 `当前夸克登录态不足`，优先执行：
+   - `python3 scripts/aro_request.py quark-transfer-repair`
+   如果还保留着刚才失败的原始转存命令，例如 `选择 7`，优先改成：
+   - `python3 scripts/aro_request.py quark-transfer-repair --retry-text "选择 7" --session <当前会话>`
+   在这之前只需要提醒用户先确认已经在 Edge 登录 `https://pan.quark.cn`。不要把分享者封禁、41031、分享受限这类错误误判成 Cookie 失效。
+7. 不要让用户提供 Cookie、Token、API Key 到聊天里。
 
 最省 token 流程：
 1. 每个新会话先 startup 一次。

@@ -21,7 +21,7 @@ docs/INDEX.md
 
 - 当前推荐主线插件：`Agent影视助手`（插件 ID：`AgentResourceOfficer`）
 - 当前发布版本：`0.2.68`
-- 当前 Skill helper 版本：`0.1.41`
+- 当前 Skill helper 版本：`0.1.42`
 - 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.68>
 - 当前安装说明：[`docs/PLUGIN_INSTALL.md`](./docs/PLUGIN_INSTALL.md)
 - 当前外部智能体接入：[`docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md`](./docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md)
@@ -255,7 +255,7 @@ P115StrmHelper = 115 媒体库基础设施层
 
 当前版本：
 
-- `0.2.67`
+- `0.2.68`
 
 它是这个仓库当前最推荐的新入口。它负责把资源相关请求统一收口：
 
