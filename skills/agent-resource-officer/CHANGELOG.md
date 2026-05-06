@@ -1,5 +1,18 @@
 # agent-resource-officer changelog
 
+## 0.1.42
+
+- Added `quark-cookie-refresh` to run the local Quark browser-cookie export tool, write the full webpage cookie back into MoviePilot/AgentResourceOfficer, and restart `moviepilot-v2`.
+- Added `quark-transfer-repair` to refresh the Quark webpage cookie and optionally retry one failed Quark transfer command after MoviePilot comes back.
+- Documented the fixed natural-language intents `刷新夸克Cookie` and `修复夸克转存`, plus the narrower auto-repair trigger guidance for explicit Quark login-state failures only.
+
+## 0.1.41
+
+- Added `hdhive-cookie-refresh` to run the local HDHive browser-cookie export tool, write the full webpage cookie back into MoviePilot/AgentResourceOfficer, and restart `moviepilot-v2`.
+- Added `hdhive-checkin-repair` to refresh the HDHive webpage cookie and immediately retry one `影巢签到`.
+- Documented the fixed natural-language intents `刷新影巢Cookie` and `修复影巢签到`, plus the auto-repair guidance for HDHive sign-in cookie failures.
+- Sanitized helper output so browser-export diagnostics no longer echo raw cookie/token material back to the caller.
+
 ## 0.1.40
 
 - Added `deprecated_aliases` to the helper-facing `external-agent` payload.

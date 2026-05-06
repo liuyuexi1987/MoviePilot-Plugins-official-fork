@@ -10,8 +10,8 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 
 ## 当前接入状态
 
-- 当前插件版本：`Agent影视助手 0.2.67`
-- 当前 helper 版本：`agent-resource-officer 0.1.40`
+- 当前插件版本：`Agent影视助手 0.2.68`
+- 当前 helper 版本：`agent-resource-officer 0.1.42`
 - 当前最小循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
 - 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
 - 当前 AI 识别失败诊断入口：
@@ -78,6 +78,22 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 - 或先读模板：`python3 <SKILL_HOME>/agent-resource-officer/scripts/aro_request.py templates --recipe smart_search_plan --compact`
 - 如果用户已经明确要求立即执行，用：`python3 <SKILL_HOME>/agent-resource-officer/scripts/aro_request.py route "智能执行 <片名>" --summary-only`
 - 或先读模板：`python3 <SKILL_HOME>/agent-resource-officer/scripts/aro_request.py templates --recipe smart_search_execute --compact`
+
+如果用户只是普通地说“搜索/找 某片”，先把原话透传给 `route`，不要自己先脑补成影巢候选或直接续跑旧会话里的 `选择 1`：
+
+- `搜索 <片名>`：默认先走盘搜
+- `云盘搜索 <片名>`：只走盘搜 + 影巢，不进入 MP/PT
+- `影巢搜索 <片名>`：明确走影巢直接列表
+- `MP搜索 <片名>` / `PT搜索 <片名>`：明确走 MoviePilot 原生 PT 搜索
+- `更新 <片名>` / `更新检查 <片名>` / `检查 <片名>`：先走更新检查，直接返回官方参考进度、盘搜最新集资源、影巢最新集资源；不要先清空会话，不要先改走影巢候选
+- `清空夸克默认转存目录` / `清空夸克默认目录`：这是显式破坏性写操作，只在用户原话明确提出时直传，不要改写成 115 清理，也不要先做搜索或更新检查。它会清掉夸克默认目录当前层的文件和文件夹；删除文件夹时会连同文件夹内内容一起清掉。
+- `清空115转存目录` / `清空115默认转存目录` / `清空115默认目录`：这是显式破坏性写操作，只在用户原话明确提出时直传，不要改写成夸克清理，也不要先做搜索或更新检查
+
+只有当用户明确说 `下载 <片名>`，而且没有指定来源时，才默认进入智能链，目的是少做选择、提高效率。
+
+普通 `搜索/找 <片名>` 返回盘搜列表后，默认先按编号直接选；想先确认时再发 `选择 1 详情`。只有用户明确要求保留计划确认链时，才发 `计划选择 1`。
+
+普通 `搜索/找 <片名>` 的结果，优先原样转述资源官返回的编号列表。不要把它再改写成“资源状态”“推荐条目”“费用/评分/推荐星级”这种二次摘要；如果要加一句说明，只保留极短观察，不要覆盖原列表。
 
 这条入口会统一按 `盘搜 -> 影巢 -> MP/PT` 搜索，并自动读取当前会话偏好里的：
 
@@ -373,7 +389,15 @@ POST /api/v1/plugin/AgentResourceOfficer/assistant/pick?apikey={MP_API_TOKEN}
 2. 如果 session 丢失，让用户重新发搜索词或链接。
 3. 如果 115 不可用，引导用户发“115登录”。
 4. 如果夸克失败，提示可能 Cookie 失效，让用户更新夸克登录状态。
-5. 不要让用户提供 Cookie、Token、API Key 到聊天里。
+5. 如果 `影巢签到` 或 `影巢签到日志` 明确提示网页登录态失效、Cookie 失效、require login 或自动登录拿不到有效 Cookie，优先执行：
+   - `python3 scripts/aro_request.py hdhive-checkin-repair`
+   在这之前只需要提醒用户先确认已经在 Edge 登录 `https://hdhive.com`。不要让用户手工复制 Cookie 到聊天里。
+6. 如果夸克失败里明确提示 `require login [guest]`、`夸克登录态已过期` 或 `当前夸克登录态不足`，优先执行：
+   - `python3 scripts/aro_request.py quark-transfer-repair`
+   如果还保留着刚才失败的原始转存命令，例如 `选择 7`，优先改成：
+   - `python3 scripts/aro_request.py quark-transfer-repair --retry-text "选择 7" --session <当前会话>`
+   在这之前只需要提醒用户先确认已经在 Edge 登录 `https://pan.quark.cn`。不要把分享者封禁、41031、分享受限这类错误误判成 Cookie 失效。
+7. 不要让用户提供 Cookie、Token、API Key 到聊天里。
 
 最省 token 流程：
 1. 每个新会话先 startup 一次。

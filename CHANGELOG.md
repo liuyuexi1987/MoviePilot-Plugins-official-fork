@@ -3,8 +3,8 @@
 ## 当前主线
 
 - 仓库已经从单一 AI Gateway 插件，收拢为 MoviePilot 资源与智能体插件套件。
-- 当前发布前检查覆盖 8 个可本地安装插件：
-  `AIRecoginzerForwarder`、`AIRecognizerEnhancer`、`AgentResourceOfficer`、`FeishuCommandBridgeLong`、`HdhiveOpenApi`、`HDHiveDailySign`、`QuarkShareSaver`、`ZspaceMediaFreshMix`。
+- 当前发布前检查覆盖 5 个可本地安装插件：
+  `AIRecognizerEnhancer`、`AgentResourceOfficer`、`FeishuCommandBridgeLong`、`HdhiveOpenApi`、`QuarkShareSaver`。
 - `AgentResourceOfficer` 已作为新资源主入口，负责影巢、盘搜、115、夸克、内置飞书入口和智能体 Tool 的统一路由。
 - `FeishuCommandBridgeLong` 继续保留为兼容/备份入口，新用户优先使用 `AgentResourceOfficer` 内置飞书 Channel。
 - `AIRecognizerEnhancer` 作为新识别增强线，逐步替代旧网关转发链路。
@@ -12,16 +12,15 @@
 
 ## 当前核心版本
 
-- `AIRecoginzerForwarder`: `2.0.1`
-- `AIRecognizerEnhancer`: `0.1.11`
-- `AgentResourceOfficer`: `0.2.67`
+- `AIRecognizerEnhancer`: `0.1.12`
+- `AgentResourceOfficer`: `0.2.68`
 - `FeishuCommandBridgeLong`: `0.5.26`
 - `HdhiveOpenApi`: `0.3.0`
-- `HDHiveDailySign`: `1.0.0`
 - `QuarkShareSaver`: `0.1.0`
-- `ZspaceMediaFreshMix`: `1.0.0`
 
 ## 近期基础设施更新
+
+- `AgentResourceOfficer 0.2.68`：收口云盘搜索/转存/影巢签到恢复链；固定“搜索/云盘搜索/转存/下载/更新检查”口径，补齐 `清空115转存目录`、`清空夸克转存目录`、插件页“立即影巢签到”、影巢 Cookie 一键刷新/签到修复 helper，以及主页/Skill 文档同步。
 
 - `AgentResourceOfficer 0.2.67`：收口外部智能体入口细节；隐藏 `workbuddy_quickstart` 旧 recipe 展示名，为 `external-agent` / `commands` 增加 deprecated alias 语义，并统一首页、安装、外部接入、远程部署和 Skill 文档的当前状态区。
 - `AgentResourceOfficer 0.2.66`：为 `request_templates` 增加 `entry_playbooks`，直接给出外部智能体、MP 内置智能体、飞书入口的 helper 命令、HTTP 端点、Tool 名称和推荐读取字段，进一步减少接入方的二次编排逻辑。

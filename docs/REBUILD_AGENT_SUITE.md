@@ -45,7 +45,7 @@
 
 计划承接的现有能力：
 
-- `AIRecoginzerForwarder`
+- 已全部收敛到 `AIRecognizerEnhancer`
 
 首期能力边界：
 
@@ -56,19 +56,17 @@
 
 ## 旧插件处理原则
 
-重构期间，以下目录全部保留，不做破坏性删除：
+重构期间，以下目录优先保留；自用魔改和旧签到插件可逐步从公开仓库下架：
 
-- `AIRecoginzerForwarder`
 - `FeishuCommandBridgeLong`
 - `HdhiveOpenApi`
-- `HDHiveDailySign`
 - `QuarkShareSaver`
-- `ZspaceMediaFreshMix`
 
 处理原则：
 
 - 旧插件继续作为线上可运行版本
 - `FeishuCommandBridgeLong` 当前继续保留为兼容飞书入口，不做删除
+- `HDHiveDailySign`、`ZspaceMediaFreshMix` 更适合本地自用，不再作为公开主线插件继续发布
 - 新功能尽量优先落到新插件设计里
 - 旧插件只做必要修复，不再继续扩张边界
 

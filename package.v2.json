@@ -1,25 +1,14 @@
 {
-  "AIRecoginzerForwarder": {
-    "name": "AI 识别转发",
-    "description": "MoviePilot 原生识别失败后异步调用 AI Gateway，并在回调后自动二次整理。",
-    "labels": "AI,识别,TMDB,Gateway",
-    "version": "2.0.1",
-    "icon": "airecoginzerforwarder.png",
-    "author": "liuyuexi1987",
-    "level": 1,
-    "history": {
-      "2.0.1": "修正版本展示格式，并保持 AI Gateway 对接与识别增强模式。"
-    }
-  },
   "AIRecognizerEnhancer": {
     "name": "AI识别增强",
     "description": "直接复用 MoviePilot 当前 LLM 配置，在原生识别失败后做本地结构化识别兜底，并交回原生链路继续二次识别。",
     "labels": "AI,识别,LLM,本地兜底,MoviePilot,TMDB",
-    "version": "0.1.11",
+    "version": "0.1.12",
     "icon": "airecognizerenhancer.png",
     "author": "liuyuexi1987",
     "level": 1,
     "history": {
+      "0.1.12": "兼容 MoviePilot 最新 LLM 路径与异步 get_llm 接口，修复最新版 MP 下插件加载失败问题。",
       "0.1.11": "同步运行态版本，保持本地结构化识别、失败样本闭环和识别词建议能力一致。",
       "0.1.10": "新增识别词建议模型退化时的精确规则兜底，保证批量建议/批量写入在上游异常时仍能尽量落地。",
       "0.1.9": "新增失败样本精简摘要接口，并让批量建议/批量写入附带低 token 文本摘要，便于智能体直接消费。",
@@ -38,11 +27,12 @@
     "name": "Agent影视助手",
     "description": "统一承接影巢搜索/解锁、115 转存、夸克转存、飞书入口与智能体接口的资源工作流主插件。",
     "labels": "Agent,影巢,HDHive,115,夸克,Quark,智能体,转存,解锁",
-    "version": "0.2.67",
+    "version": "0.2.68",
     "icon": "agentresourceofficer.png",
     "author": "liuyuexi1987",
     "level": 1,
     "history": {
+      "0.2.68": "收口云盘搜索/转存/影巢签到恢复链：固定“转存/下载/云盘搜索/更新检查”口径，补齐 115/夸克默认目录清理、影巢立即签到与 Cookie 一键修复命令，并同步主页与 Skill 文档。",
       "0.2.67": "收口外部智能体入口细节：隐藏 workbuddy_quickstart 旧 recipe 展示名，为 external-agent / commands 增加 deprecated alias 语义，并统一当前状态文档。",
       "0.2.66": "为 request_templates 增加三类入口的 entry_playbooks，直接给出 helper 命令、HTTP 端点、Tool 名称和推荐读取字段，进一步减少外部智能体与 MP 内置智能体的接入编排逻辑。",
       "0.2.65": "为 request_templates 和 helper 增加模板编排元数据，明确服务端/客户端角色、三类入口范式，以及 startup -> decide -> route -> followup 的推荐最小执行流。",
@@ -286,18 +276,6 @@
       "0.3.0": "支持关键词搜索、TMDB 候选解析、115 自动转存、分享管理、签到与配额查询。"
     }
   },
-  "HDHiveDailySign": {
-    "name": "HDHive Daily Sign",
-    "description": "自动完成影巢(HDHive)每日签到，支持普通/赌狗模式、失败重试、自动登录与历史记录。",
-    "labels": "HDHiveDailySign,HDHive Daily Sign,影巢签到,HDHive,签到,自动登录,赌狗签到",
-    "version": "1.0.0",
-    "icon": "hdhive.ico",
-    "author": "liuyuexi1987",
-    "level": 2,
-    "history": {
-      "1.0.0": "以全新英文插件身份发布，统一作者信息并与旧插件统计口径分离。"
-    }
-  },
   "QuarkShareSaver": {
     "name": "夸克分享转存",
     "description": "把夸克分享链接直接转存到自己的夸克网盘目录，适合作为智能体和飞书的稳定执行入口。",
@@ -308,18 +286,6 @@
     "level": 1,
     "history": {
       "0.1.0": "首个轻量版本，支持夸克分享解析、目录自动创建、转存执行，以及智能体和飞书调用。"
-    }
-  },
-  "ZspaceMediaFreshMix": {
-    "name": "极影视刷新（自用魔改）",
-    "description": "基于 gxterry 原版整理的自用魔改版，兼容电影/电视剧混合分类、新版极空间 Cookie 和分类刷新轮询。",
-    "labels": "极影视,极空间,Zspace,媒体刷新,混合分类,自用魔改",
-    "version": "1.0.0",
-    "icon": "zspacemediafreshmix.png",
-    "author": "liuyuexi1987",
-    "level": 1,
-    "history": {
-      "1.0.0": "基于原版刷新极影视插件整理为独立自用魔改版，兼容混合分类与新版极空间 Cookie。"
     }
   }
 }

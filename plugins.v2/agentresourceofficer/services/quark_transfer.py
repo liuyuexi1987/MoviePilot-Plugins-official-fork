@@ -207,7 +207,7 @@ class QuarkTransferService:
             text = raw_body.decode("utf-8", errors="ignore")[:300]
             return False, {}, f"接口返回非 JSON: HTTP {status_code} {text}"
 
-        if status_code == 401 and allow_cookie_retry and self._refresh_cookie():
+        if status_code in {401, 403} and allow_cookie_retry and self._refresh_cookie():
             return self._request(
                 method,
                 url,
@@ -217,6 +217,13 @@ class QuarkTransferService:
             )
 
         if status_code != 200:
+            if isinstance(data, dict):
+                code = self.clean_text(data.get("code"))
+                detail = self.clean_text(data.get("message") or data.get("msg"))
+                if detail:
+                    if code:
+                        return False, data, f"HTTP {status_code} [{code}]: {detail}"
+                    return False, data, f"HTTP {status_code}: {detail}"
             return False, data if isinstance(data, dict) else {}, f"HTTP {status_code}"
 
         if isinstance(data, dict):
@@ -325,6 +332,7 @@ class QuarkTransferService:
                         "dir": int(item.get("file_type") or 0) == 0,
                         "size": item.get("size") or 0,
                         "updated_at": item.get("updated_at") or 0,
+                        "raw": item,
                     }
                 )
             if len(current) < 100:
@@ -332,6 +340,77 @@ class QuarkTransferService:
             page += 1
 
         return True, result, ""
+
+    def delete_items(self, items: List[Dict[str, Any]]) -> Tuple[bool, Dict[str, Any], str]:
+        filelist: List[Dict[str, Any]] = []
+        for item in items or []:
+            fid = self.clean_text((item or {}).get("fid")) if isinstance(item, dict) else ""
+            if fid:
+                filelist.append({"fid": fid})
+        if not filelist:
+            return False, {}, "默认目录当前层没有可删除项目"
+
+        ok, data, message = self._request(
+            "POST",
+            "https://drive-pc.quark.cn/1/clouddrive/file/delete",
+            params={
+                "pr": "ucpro",
+                "fr": "pc",
+                "uc_param_str": "",
+            },
+            json_body={
+                "action_type": 2,
+                "exclude_fids": [],
+                "filelist": filelist,
+            },
+        )
+        if not ok:
+            return False, data, message or "夸克批量删除失败"
+        return True, data, ""
+
+    def clear_directory(self, path: str = "") -> Tuple[bool, Dict[str, Any], str]:
+        ok, target_fid, normalized_path = self.ensure_target_dir(path or self.default_target_path)
+        if not ok:
+            return False, {}, target_fid or "定位夸克目录失败"
+
+        ok, children, message = self.list_children(target_fid)
+        if not ok:
+            return False, {}, message or "读取夸克目录失败"
+
+        files = [item for item in children if not bool(item.get("dir"))]
+        folders = [item for item in children if bool(item.get("dir"))]
+        if not children:
+            return True, {
+                "target_path": normalized_path,
+                "target_fid": target_fid,
+                "removed_count": 0,
+                "file_count": 0,
+                "folder_count": 0,
+                "items": [],
+                "time": self._tz_now().strftime("%Y-%m-%d %H:%M:%S"),
+            }, "默认目录当前层为空"
+
+        ok, delete_result, message = self.delete_items(children)
+        if not ok:
+            return False, {
+                "target_path": normalized_path,
+                "target_fid": target_fid,
+                "file_count": len(files),
+                "folder_count": len(folders),
+                "items": [self.clean_text(item.get("name")) for item in children[:20]],
+                "delete_result": delete_result,
+            }, message or "夸克清空默认目录失败"
+
+        return True, {
+            "target_path": normalized_path,
+            "target_fid": target_fid,
+            "removed_count": len(children),
+            "file_count": len(files),
+            "folder_count": len(folders),
+            "items": [self.clean_text(item.get("name")) for item in children[:20]],
+            "delete_result": delete_result,
+            "time": self._tz_now().strftime("%Y-%m-%d %H:%M:%S"),
+        }, "success"
 
     def find_child_dir(self, parent_fid: str, name: str) -> Tuple[bool, str, str]:
         ok, items, message = self.list_children(parent_fid)

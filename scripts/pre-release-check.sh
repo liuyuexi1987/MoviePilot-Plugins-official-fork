@@ -35,14 +35,11 @@ fi
 trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 
 PACKAGE_PLUGINS=(
-  AIRecoginzerForwarder
   AIRecognizerEnhancer
   AgentResourceOfficer
   FeishuCommandBridgeLong
   HdhiveOpenApi
-  HDHiveDailySign
   QuarkShareSaver
-  ZspaceMediaFreshMix
 )
 
 release_git_status() {
@@ -77,7 +74,6 @@ python3 - <<'PY'
 from pathlib import Path
 
 roots = [
-    Path("AIRecoginzerForwarder"),
     Path("AIRecognizerEnhancer"),
     Path("AgentResourceOfficer"),
     Path("FeishuCommandBridgeLong"),
@@ -287,6 +283,20 @@ from pathlib import Path
 
 root = Path(".").resolve()
 failed = []
+
+def resolve_with_mirror_fallback(md_file: Path, target: str) -> Path:
+    direct = (md_file.parent / target).resolve()
+    if direct.exists():
+        return direct
+    if md_file.parts and md_file.parts[0] in {"plugins", "plugins.v2"}:
+        stripped = target
+        while stripped.startswith("../"):
+            stripped = stripped[3:]
+        if stripped:
+            fallback = (root / stripped).resolve()
+            return fallback
+    return direct
+
 for md_file in sorted(Path(".").rglob("*.md")):
     if ".git" in md_file.parts or md_file.name.startswith("SESSION_HANDOFF_"):
         continue
@@ -299,7 +309,7 @@ for md_file in sorted(Path(".").rglob("*.md")):
         if not target:
             continue
         target = urllib.parse.unquote(target)
-        target_path = (md_file.parent / target).resolve()
+        target_path = resolve_with_mirror_fallback(md_file, target)
         try:
             target_path.relative_to(root)
         except ValueError:
@@ -376,17 +386,12 @@ test -f dist/MANIFEST.json
 test -f dist/skills/SHA256SUMS.txt
 test -f dist/skills/MANIFEST.json
 test -f scripts/generate-release-notes.sh
-test -f plugins/airecoginzerforwarder/__init__.py
-test -f plugins/airecoginzerforwarder/requirements.txt
-test -f plugins.v2/airecoginzerforwarder/__init__.py
 test -f plugins/agentresourceofficer/__init__.py
 test -f plugins/agentresourceofficer/agenttool.py
 test -f plugins/agentresourceofficer/schemas.py
 test -f plugins/agentresourceofficer/services/p115_transfer.py
 test -f plugins/airecognizerenhancer/__init__.py
 test -f plugins/quarksharesaver/__init__.py
-test -f AIRecoginzerForwarder/README.md
-test -f AIRecoginzerForwarder/requirements.txt
 for plugin_name in "${PACKAGE_PLUGINS[@]}"; do
   version="$(PLUGIN_NAME="$plugin_name" python3 - <<'PY'
 import json

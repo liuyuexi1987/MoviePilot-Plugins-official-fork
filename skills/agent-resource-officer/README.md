@@ -2,11 +2,11 @@
 
 公开版 AgentResourceOfficer Skill 模板，用来让外部智能体通过 MoviePilot 插件接口控制 115 云盘、夸克云盘等云盘资源工作流。插件是服务端执行层；Skill/helper 是客户端调度层。
 
-当前 helper 版本：`0.1.40`
+当前 helper 版本：`0.1.42`
 
 ## 当前状态
 
-- 当前插件版本：`Agent影视助手 0.2.67`
+- 当前插件版本：`Agent影视助手 0.2.68`
 - 当前最小循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
 - 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
 - 当前 AI 失败样本只读诊断入口：
@@ -24,6 +24,33 @@
   - `python3 scripts/aro_request.py route --text "智能搜索 蜘蛛侠" --summary-only`
   - `python3 scripts/aro_request.py route --text "资源决策 蜘蛛侠" --summary-only`
   - `python3 scripts/aro_request.py route --text "资源决策 蜘蛛侠 详情" --summary-only`
+- 当前搜索口径：
+  - `搜索 <片名>` / `找 <片名>` 默认先走盘搜
+  - `云盘搜索 <片名>` 固定走盘搜 + 影巢
+  - `影巢搜索 <片名>` 明确走影巢直接列表
+  - `MP搜索 <片名>` / `PT搜索 <片名>` 明确走 MoviePilot 原生 PT 搜索
+- `转存 <片名>` 走云盘资源一条龙转存，优先盘搜 + 影巢
+- `下载 <片名>` 走 MP/PT 直接下载
+- 当前更新口径：
+  - `更新 <片名>` / `更新检查 <片名>` / `检查 <片名>` 先走更新检查
+  - 直接展示官方参考进度、盘搜最新集资源、影巢最新集资源
+  - 不要先清空会话，不要先改走影巢候选
+  - 资源列表必须保留原始编号，方便后续直接回编号
+- 当前破坏性目录命令：
+  - `清空夸克默认转存目录`
+  - `清空夸克默认目录`
+  - `清空115转存目录`
+  - `清空115默认转存目录`
+  - `清空115默认目录`
+  - 只在用户原话明确提出时执行，不要从模糊“清理一下”里自行推断
+- 当前影巢签到修复入口：
+  - `python3 scripts/aro_request.py hdhive-cookie-refresh`
+  - `python3 scripts/aro_request.py hdhive-checkin-repair`
+  - 推荐做法：先确保 Edge 已登录 `https://hdhive.com`，再用上面两条命令自动写回完整 Cookie，不要手工复制 Cookie
+- 当前夸克登录修复入口：
+  - `python3 scripts/aro_request.py quark-cookie-refresh`
+  - `python3 scripts/aro_request.py quark-transfer-repair`
+  - 推荐做法：先确保 Edge 已登录 `https://pan.quark.cn`，登录态失效时优先刷新 Cookie；只有明确是 `require login [guest]` 这类登录态问题时才自动修复
 
 公开仓库：
 
@@ -65,14 +92,32 @@ bash install.sh --target /path/to/skills/agent-resource-officer
 ```text
 ARO_BASE_URL=http://127.0.0.1:3000
 ARO_API_KEY=your_moviepilot_api_token
+ARO_HDHIVE_COOKIE_EXPORT_DIR=~/Services/工具项目/影巢Cookie导出 YingChaoCookieExport
+ARO_QUARK_COOKIE_EXPORT_DIR=~/Services/工具项目/夸克Cookie导出 QuarkCookieExport
 ```
 
 `ARO_BASE_URL` 按实际部署填写：同机可以用 `http://127.0.0.1:3000`，局域网可以用 `http://你的局域网IP:3000`，公网反代可以用自己的 HTTPS 域名。
+
+如果你要让 helper 直接调用本机“影巢 Cookie 导出”工具，可选配置：
+
+```text
+ARO_HDHIVE_COOKIE_EXPORT_DIR=/绝对路径/影巢Cookie导出 YingChaoCookieExport
+ARO_HDHIVE_COOKIE_EXPORT_PYTHON=/绝对路径/python
+ARO_HDHIVE_COOKIE_BROWSER=edge
+ARO_HDHIVE_COOKIE_SITE_URL=https://hdhive.com
+ARO_HDHIVE_COOKIE_RESTART_CONTAINER=moviepilot-v2
+ARO_QUARK_COOKIE_EXPORT_DIR=/绝对路径/夸克Cookie导出 QuarkCookieExport
+ARO_QUARK_COOKIE_EXPORT_PYTHON=/绝对路径/python
+ARO_QUARK_COOKIE_BROWSER=edge
+ARO_QUARK_COOKIE_SITE_URL=https://pan.quark.cn
+ARO_QUARK_COOKIE_RESTART_CONTAINER=moviepilot-v2
+```
 
 `route` 支持两种写法：
 
 - `python3 scripts/aro_request.py route "盘搜搜索 大君夫人"`
 - `python3 scripts/aro_request.py route --text "盘搜搜索 大君夫人"`
+- `python3 scripts/aro_request.py route "云盘搜索 大君夫人"`
 - `python3 scripts/aro_request.py route "智能搜索 蜘蛛侠"`
 
 `route`、`pick`、`workflow`、`plan-execute`、`followup` 还支持：
@@ -82,12 +127,48 @@ ARO_API_KEY=your_moviepilot_api_token
 
 适合外部智能体只拿“下一步怎么做”的最小结果。
 
+夸克默认目录清空入口：
+
+```bash
+python3 scripts/aro_request.py route "清空夸克默认转存目录"
+```
+
+这条命令只针对当前配置的夸克默认转存目录，按当前层项目执行清空：当前层文件会直接删除，当前层文件夹也会一并删除（删除文件夹时会连同文件夹内内容一起清掉）。不要把它当成 115 清理，也不要从普通清理意图里自动触发，更不要先 grep helper 源码判断“支不支持”。
+
+115 默认目录清空入口：
+
+```bash
+python3 scripts/aro_request.py route "清空115转存目录"
+python3 scripts/aro_request.py route "清空115默认转存目录"
+```
+
+这条命令只针对当前配置的 115 默认转存目录，按当前层项目执行清空：当前层文件会直接删除，当前层文件夹也会一并删除（删除文件夹时会连同文件夹内内容一起清掉）。它是显式破坏性命令，不要从普通清理意图里自动触发，也不要先 grep helper 源码判断“支不支持”。
+
 `pick`、`plan-execute`、`followup` 也支持更短的位置参数写法：
 
 - `python3 scripts/aro_request.py pick 1`
 - `python3 scripts/aro_request.py pick 1 详情`
 - `python3 scripts/aro_request.py plan-execute plan-xxx`
 - `python3 scripts/aro_request.py followup plan-xxx`
+
+影巢 Cookie 刷新与签到修复：
+
+```bash
+python3 scripts/aro_request.py hdhive-cookie-refresh
+python3 scripts/aro_request.py hdhive-checkin-repair
+```
+
+前者会从本机浏览器导出完整网页 Cookie 并自动写回 MoviePilot/AgentResourceOfficer；后者会在刷新 Cookie 后直接再跑一次 `影巢签到`。当 `影巢签到` 或 `影巢签到日志` 明确提示网页登录态失效时，优先使用这两条命令，不要手工复制 Cookie。
+
+夸克 Cookie 刷新与转存修复：
+
+```bash
+python3 scripts/aro_request.py quark-cookie-refresh
+python3 scripts/aro_request.py quark-transfer-repair
+python3 scripts/aro_request.py quark-transfer-repair --retry-text "选择 7" --session default
+```
+
+前者会从本机浏览器导出夸克 Cookie 并自动写回 `AgentResourceOfficer` / `QuarkShareSaver`；后者会在刷新 Cookie 后检查夸克健康状态，必要时还能顺手重试一条刚才失败的转存命令。只有明确报出 `require login [guest]`、`夸克登录态已过期` 这类登录态问题时，才建议走这条修复链；分享受限、分享者封禁等错误不要误判成 Cookie 失效。
 
 `plan-execute` 返回里会保留插件给出的 `recommended_action` 和 `follow_up_hint`。如果不想自己解析下一步，也可以直接执行 `python3 scripts/aro_request.py followup --session 'agent:<会话ID>'`。
 
@@ -464,7 +545,20 @@ python3 scripts/aro_request.py route --text "执行计划" --session agent:demo
 python3 scripts/aro_request.py route --text "执行 plan-xxxx" --session agent:demo
 ```
 
-盘搜和影巢资源列表里的 `最佳片源`、`选择 1 详情` 是只读查看，不会转存或解锁；外部智能体代操作时优先发 `计划选择 1` 生成 `plan_id`，用户确认后再执行计划。只有用户明确要求立即处理时才直接发 `选择 1`。
+盘搜和影巢资源列表里的 `最佳片源`、`选择 1 详情` 是只读查看，不会转存或解锁。普通 `搜索/找 <片名>` 返回的盘搜列表，默认先按编号直接选；想先确认时再发 `选择 1 详情`。只有用户明确要求保留计划确认链时，才发 `计划选择 1`。
+
+普通 `搜索/找 <片名>` 的返回应尽量原样展示资源官给出的编号列表，不要再二次改写成“资源状态”“推荐清单”“费用/评分/推荐星级”之类的摘要。最好的做法是保留原列表和下一步提示，只在前后补一两句极短说明。
+
+`云盘搜索 <片名>` 也应尽量原样展示资源官给出的组合结果。不要把 `云盘搜索` 偷换成 `盘搜搜索`，也不要把插件已经给出的 `盘搜结果 / 影巢结果` 两段重新压成“剧集信息 / 推荐资源 / 分析结论”的导购摘要。优先保留：
+- `盘搜结果`
+- `影巢结果`
+- 原始编号
+- 盘搜原始链接
+- 插件原生下一步提示
+
+`云盘搜索` 返回后，不要自行改写成每个来源各自从 `1` 开始编号的小表格，也不要只摘“亮点”。如果插件返回了全局编号，就保留全局编号；如果插件提示“影巢候选未自动展开”，也应原样保留这句，而不是把它改成一句“影巢还有候选，需要可发影巢搜索”然后丢掉上文结构。
+
+夸克转存失败时，不要自己补一段“可能是默认转存目录不存在或有问题”“换个 path=/ 试试”这类猜测。只有当插件明确指出路径问题时，才建议改路径；如果插件只返回 `夸克转存失败：无法转存到 /飞书`，更稳妥的表述应是“原因未明，先不要自行推断路径问题”。
 
 下载任务也可以走同一入口。查询是读操作；暂停、恢复、删除会先返回 `plan_id`，确认后再执行：
 

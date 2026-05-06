@@ -310,7 +310,11 @@ class HDHiveOpenApiService:
         slug = self.normalize_slug(slug)
         if not slug:
             return False, {"message": "slug 不能为空", "slug": ""}, "slug 不能为空"
-        ok, payload, message, status_code = self.request("POST", f"/api/open/resource/{slug}/unlock")
+        ok, payload, message, status_code = self.request(
+            "POST",
+            "/api/open/resources/unlock",
+            payload={"slug": slug},
+        )
         result = {
             "time": self.tz_now().strftime("%Y-%m-%d %H:%M:%S"),
             "ok": ok,
