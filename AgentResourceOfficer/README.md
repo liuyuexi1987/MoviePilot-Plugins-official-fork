@@ -1,819 +1,235 @@
 # Agent影视助手
 
-这是重构中的新主插件目录，用来承接当前仓库里和“资源搜索、解锁、转存、签到、远程入口”相关的能力。
+`Agent影视助手` 是这个仓库当前最重要的主线插件。
 
-当前已经不是纯骨架，已经具备第一批可用 API，并且已经在实际 MoviePilot 运行环境里完成了健康检查与会话搜索回归。
+它的目标很简单：
 
-- 夸克健康检查
-- 夸克分享转存
-- 115 依赖健康检查
-- 115 分享转存
-- 影巢健康检查
-- 影巢账号信息
+- 帮你把 `盘搜`、`影巢`、`115`、`夸克`、`MoviePilot 原生搜索/PT` 这些能力收进同一条资源工作流
+- 让你在 `MoviePilot`、`飞书`、`WorkBuddy`、`OpenClaw`、`Hermes` 这类外部智能体里，用尽量一致的命令去搜索、转存、下载、更新和修复
+
+如果你是第一次接触这个仓库，优先看这个插件就够了。
+
+## 适合谁
+
+适合这些场景：
+
+- 你想统一处理“找资源 -> 选资源 -> 转存到网盘”的流程
+- 你既用 `115`，也用 `夸克`
+- 你会同时用 `盘搜`、`影巢`、`MP/PT`
+- 你希望外部智能体不要乱发挥，而是按固定命令稳定执行
+- 你需要在 `Win/Mac` 上跑智能体、在 `NAS` 上跑 `MoviePilot`
+
+## 主要能力
+
+### 资源搜索
+
+- `搜索 <片名>`：普通搜索，默认先盘搜
+- `盘搜搜索 <片名>`：只看盘搜
+- `影巢搜索 <片名>`：只看影巢
+- `云盘搜索 <片名>`：盘搜 + 影巢
+- `MP搜索 <片名>` / `PT搜索 <片名>`：走 MoviePilot 原生搜索/PT
+
+### 资源执行
+
+- `转存 <片名>`：云盘资源一条龙转存
+- `夸克转存 <片名>`：优先选夸克资源并转存到夸克
+- `115转存 <片名>`：优先选 115 资源并转存到 115
+- `下载 <片名>`：走 MP/PT 下载链
+
+### 更新与检查
+
+- `更新检查 <片名>` / `检查 <片名>`
+- `影巢签到`
+- `影巢签到日志`
+
+### 维护与修复
+
+- `115登录`
+- `115状态`
+- `清空115转存目录`
+- `清空夸克转存目录`
+- `刷新影巢Cookie`
+- `修复影巢签到`
+- `刷新夸克Cookie`
+- `修复夸克转存`
+
+### MoviePilot 原生能力接入
+
+除了云盘资源链，这个插件也已经接进了 `MoviePilot` 原生能力：
+
+- 原生搜索
+- PT 下载
+- 订阅
+- 下载任务
+- 下载历史
+- 入库历史
+- 站点状态 / 下载器状态
+- 热门探索 / 推荐
+
+## 推荐使用方式
+
+### 1. 你已经知道片名
+
+优先这样用：
+
+- `云盘搜索 片名`
+- `转存 片名`
+- `夸克转存 片名`
+- `115转存 片名`
+- `下载 片名`
+
+### 2. 你想先看看是否更新
+
+优先这样用：
+
+- `更新检查 片名`
+- `检查 片名`
+
+### 3. 你只想盯单一来源
+
+优先这样用：
+
+- `盘搜搜索 片名`
+- `影巢搜索 片名`
+- `MP搜索 片名`
+- `PT搜索 片名`
+
+## 常用命令示例
+
+```text
+云盘搜索 21世纪大君夫人
+盘搜搜索 低智商犯罪
+影巢搜索 流浪地球2
+转存 21世纪大君夫人
+夸克转存 21世纪大君夫人
+115转存 低智商犯罪
+下载 沙丘2
+更新检查 大君夫人
+检查 低智商犯罪
+影巢签到
+修复影巢签到
+刷新夸克Cookie
+115登录
+清空115转存目录
+清空夸克转存目录
+```
+
+## 外部智能体怎么接
+
+如果你只是直接在 `MoviePilot` 里点插件、调用原生能力，这一节可以先跳过。
+
+如果你要接：
+
+- `WorkBuddy`
+- `OpenClaw`
+- `Hermes`
+- 其他外部智能体
+
+那就需要安装 `agent-resource-officer` 的 `skill / helper`。
+
+优先阅读：
+
+- [`agent-resource-officer/SKILL.md`](../skills/agent-resource-officer/SKILL.md)
+- [`AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md`](../docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md)
+- [`AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md`](../docs/AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md)
+
+最短接入思路是：
+
+1. `NAS / 本机 MoviePilot` 安装并启用本插件
+2. 智能体所在机器安装 `agent-resource-officer skill / helper`
+3. 配好 `ARO_BASE_URL` 和 `ARO_API_KEY`
+4. 让智能体优先使用固定命令，不要自由改写
+
+## 飞书入口
+
+这个插件已经内置可选的飞书入口。
+
+适合你想在飞书里直接发：
+
+- 搜索
+- 选择
+- 转存
+- 115 登录
 - 影巢签到
-- 影巢配额与今日用量
-- 影巢每周免费额度
-- 影巢 TMDB 搜索
-- 影巢关键词候选搜索
-- 影巢资源解锁
-- 影巢解锁后自动路由到 115 / 夸克执行层
-- 通用分享链接自动路由
-- 智能体偏好画像
-- 云盘 / PT 分源评分
-- MP 原生搜索、下载、订阅与推荐调度
 
-## 目标
+如果你准备启用它，建议：
 
-- 统一影巢、盘搜、115、夸克、飞书入口
-- 让智能体、飞书、CLI、MP 原生 Agent Tool 共用同一套稳定执行能力
-- 把现在分散在多个插件里的能力收拢成一个资源工作流插件
+- 先关闭旧的 `FeishuCommandBridgeLong`
+- 避免同一个飞书机器人被两个插件同时监听
 
-## 计划承接的来源
+## 和旧插件的关系
+
+这个插件的定位是：**把旧的分散能力收成主线。**
+
+它主要承接过这些旧链路的能力：
 
 - `FeishuCommandBridgeLong`
 - `HdhiveOpenApi`
 - `QuarkShareSaver`
 
-## 首期模块
+另外还有一个常见的“旧组合”：
 
-- 搜索入口层
-  - 盘搜
-  - 影巢
-  - 智能分流
-- 执行层
-  - 影巢解锁
-  - 115 转存
-  - 夸克转存
-- 用户态层
-  - 影巢签到
-  - 用户信息
-  - 配额与用量
-- 接入层
-  - 飞书
-  - MP Agent Tool
-  - 未来 CLI 封装
+- 旧飞书桥接插件
+- 夸克分享转存插件
+- `P115StrmHelper`
+- 影巢 API / 影巢签到相关插件
 
-## 迁移原则
+这套旧组合仍然能用，但更适合兼容老环境，不适合作为后续主线继续扩展。
 
-- 先搬稳定执行能力，再搬会话和交互层
-- 保持现有线上链路可用
-- 迁移过程中不直接修改旧插件的功能边界
+### 关于 P115StrmHelper
 
-## 当前状态
+`Agent影视助手` 已经能处理很多 `115` 分享转存场景，但 `STRM` 生成、302、全量/增量同步、媒体库整理，仍建议继续交给 `P115StrmHelper`。
 
-- 当前版本：`0.2.67`
-- 当前 helper 版本：`0.1.40`
-- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.67>
-- 当前最小智能体循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
-- 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
-- 当前智能搜索主线：先按用户偏好过滤可用源/可用云盘，再按 `盘搜 -> 影巢 -> MP/PT` 做统一搜索决策
-- 当前统一决策入口：`资源决策 片名` 或 `智能决策 片名`，会返回查看详情、生成计划或直接执行的首选建议
-- 当前统一计划入口：`智能计划 片名` 或当前会话中的 `计划最佳`，只生成待确认 `plan_id`
-- 当前统一执行入口：`智能执行 片名` 或当前会话中的 `执行最佳`，仅用于用户已明确要求立即执行的场景
-- 已进入第一阶段可用状态
-- 已验证 `影巢健康检查 / 夸克健康检查 / 影巢候选搜索 / 选片进入资源列表`
-- 已接入第一批原生 `Agent Tool`
-- 已补齐 115 扫码登录原生 `Agent Tool`
-- 智能入口现已直接支持 `115登录` / `检查115登录`
-- 登录成功后会直接回显 115 可用状态、默认目录和当前会话来源
-- 智能入口与原生 Agent Tool 新增 `115状态` 查询
-- 智能入口新增 `115帮助`，状态回执会附带下一步建议
-- 待继续的 115 任务已支持持久化保存、状态摘要、手动继续、手动取消，并已下沉为原生 Agent Tool 和标准 API
-- 影巢候选已支持新主线分页、`详情` / `审查` 按需补主演，飞书切 `auto` 时也能复用
-- 盘搜和影巢资源阶段已支持安全的 `最佳片源` 和 `选择 1 详情`：只展示评分和详情，不会在缺少编号时误转存或误解锁
-- 盘搜和影巢资源阶段已支持 `计划选择 1`：先生成 `plan_id`，确认后才执行转存、解锁或扣分
-- 盘搜和影巢资源列表底部会优先提示 `计划选择`，让外部智能体默认走安全确认链路
-- 影巢资源搜索 / 解锁 / 转存已加入独立总开关；单资源积分上限默认 20 分，用于拦截高分或积分未知的解锁请求，降低外部智能体一步到位时的误消费风险
-- 影巢签到已收口到本插件：支持普通 / 赌狗签到、OpenAPI Premium 接口、网页 Cookie 兜底和定时任务
-- 影巢网页 Cookie 失效时可由插件使用账号密码自动登录刷新，并自动重试签到
-- 影巢签到日志已内置，可通过 `GET /hdhive/checkin/history` 或智能入口 `签到日志` 查看最近记录
-- 影巢部分用户态接口受站点 Premium 权限限制；如果你本地仍保留旧 `HDHiveDailySign`，账号信息可回退到它的网页快照，签到也可优先尝试它现有 Cookie 做网页兜底；公开仓库主线不再继续发布该插件
-- `115` 自动转存已具备轻量直转层：可优先使用扫码得到的 115 客户端会话，或复用已加载的 115 客户端直接调用分享转存接口；直转失败时再回退 `P115StrmHelper`
-- 已内置可选 `Feishu Channel`：可直接用飞书长连接接收消息，并复用本插件统一入口执行搜索、选择、转存、115 登录和 STRM 调度
-- 已新增智能体偏好画像：第一次接入可询问用户片源偏好，后续云盘和 PT 结果会按偏好评分
-- 偏好画像已接入自然语言主入口：`偏好` 查看，`保存偏好 4K 杜比 HDR 中字 全集 做种>=3 影巢积分20 不自动入库` 写入，`重置偏好` 清除
-- 已新增分源评分：云盘重点看清晰度、HDR/DV、字幕、完整度、目录和影巢积分；PT 重点看做种数、免费/促销、下载折算、清晰度、字幕和匹配度
-- 已接入 MP 原生动作计划：`mp_search`、`mp_search_download`、`mp_subscribe`、`mp_subscribe_and_search`、`mp_recommend`、`mp_recommend_search`
-- MP 推荐列表现在会保存为可继续会话，智能体可直接 `选择 1` 进入 MP 原生搜索，也可传 `mode=hdhive` 或 `mode=pansou` 改走影巢/盘搜
-- 推荐列表选择支持自然语言指定后续来源：`选择 1 盘搜`、`选择1影巢`、`选 2 mp`
-- MP 搜索结果支持更自然的写入命令：`下载1`、`下载第1个`、`订阅蜘蛛侠`、`订阅并搜索蜘蛛侠`；默认只生成 `plan_id`，确认后才执行
-- MP 下载任务支持查询与控制：`下载任务`、`暂停下载 1`、`恢复下载 1`、`删除下载 1`；任务控制默认生成 `plan_id`，确认后才执行
-- MP 下载历史支持只读查询：`下载历史`、`下载历史 片名`，并按 hash 关联整理/入库状态
-- MP 生命周期追踪支持只读聚合查询：`追踪 片名`，一次查看下载任务、下载历史和整理/入库历史
-- MP 原生媒体识别支持只读查询：`识别 片名`，返回 MoviePilot 识别出的标题、年份、类型和 TMDB/Douban/IMDB 信息
-- MP 原生搜索结果支持只读详情：`选择 1` 会展示站点、做种、促销、评分理由和风险，确认下载再执行 `下载1`
-- MP 原生搜索支持最佳候选详情：`最佳片源` 或 `mp_search_best` 会直接展示当前评分最高的 PT 结果
-- MP 原生搜索支持最佳候选下载计划：`下载最佳` 会生成 `plan_id`，确认后才提交下载
-- PT 主线现在统一走安全确认链路：`下载1`、`下载最佳`、订阅、订阅并搜索、下载任务控制、订阅控制默认都先生成 `plan_id`，确认后才真正写入
-- PT 评分会明确展示做种数、免费/促销、下载热度、分辨率、HDR/DV、字幕、标题匹配、站点和发布组等理由；做种数 0 或低于阈值会被标成高风险，但仍由用户决定是否执行计划
-- 已生成计划支持自然语言确认：`执行计划` 会执行当前会话最近待执行计划，`执行 plan-xxx` 会精确执行指定计划
-- MP 站点和下载器支持脱敏诊断：`站点状态`、`下载器状态`，用于排查 PT 搜索/下载环境
-- MP 订阅支持查询与控制：`订阅列表`、`搜索订阅 1`、`暂停订阅 1`、`恢复订阅 1`、`删除订阅 1`；订阅控制默认生成 `plan_id`
-- MP 整理/入库历史支持只读查询：`入库历史`、`入库失败 片名`、`整理成功 片名`，用于判断下载后是否已经落库
-- 智能入口支持自然语言热门探索：`看看最近有什么热门影视`、`热门电影`、`豆瓣热门电影`、`正在热映`、`今日番剧`
+也就是说：
 
-这意味着 `Agent影视助手` 的“115 分享链接落盘”已经开始和 `P115StrmHelper` 解耦；但 STRM 生成、302、全量/增量同步、媒体库整理仍建议继续交给 `P115StrmHelper`。
-对于登录方式，当前已经不再推荐粘贴网页版 Cookie，而是优先走 `p115client` 同款扫码会话。
+- `Agent影视助手`：更偏资源入口、搜索、转存、下载、更新、修复
+- `P115StrmHelper`：更偏 `STRM`、同步、媒体库落地
 
-## 飞书入口
+## 新手最容易踩的坑
 
-`Agent影视助手` 现在可以直接作为飞书入口使用。这个入口默认关闭，开启前建议先关闭旧 `FeishuCommandBridgeLong`，避免同一个飞书机器人被两个插件同时监听。
-
-内置飞书入口只负责收消息、权限校验、回复和二维码图片发送；影巢、盘搜、115、夸克这些资源动作仍统一走 `assistant/route` 与 `assistant/pick`。
-
-`feishu/health` 和 `agent_resource_officer_feishu_health` 会显示旧桥接是否仍在运行；如果新入口已开启且旧桥接也在运行，会返回冲突提示，便于迁移时排查重复回复或抢消息问题。
-
-常用命令：
-
-```txt
-处理 流浪地球2
-影巢搜索 流浪地球2
-yc流浪地球2
-2流浪地球2
-盘搜搜索 流浪地球2
-ps流浪地球2
-1流浪地球2
-链接 https://115cdn.com/s/xxxx path=/待整理
-链接 https://pan.quark.cn/s/xxxx path=/飞书
-选择 1
-计划选择 1
-执行计划
-详情
-审查
-n 下一页
-115登录
-115状态
-115任务
-继续115任务
-取消115任务
-```
-
-兼容的远程操作：
-
-```txt
-MP搜索 片名
-下载资源 1
-订阅媒体 片名
-订阅并搜索 片名
-热门推荐
-刮削 /待整理/
-生成STRM
-全量STRM
-指定路径STRM /emby/movie
-```
-
-`生成STRM`、`全量STRM`、`指定路径STRM` 只调度已安装的 `P115StrmHelper`，不会把 STRM 生成逻辑搬进本插件。
-
-如遇到 `P115StrmHelper` 因 `TransferOverwriteCheckEventData` 导入失败而无法加载，可执行仓库脚本：
-
-```bash
-MP_CONTAINER=moviepilot-v2 ./scripts/patch-p115strmhelper-mp-compat.sh
-```
-
-执行后重启 MoviePilot，再检查 `AgentResourceOfficer` 的 `p115/health` 是否返回 `p115_ready=true`。
-
-## 当前可用 API
-
-以下接口已经接入：
-
-- `GET /api/v1/plugin/AgentResourceOfficer/quark/health`
-- `POST /api/v1/plugin/AgentResourceOfficer/quark/transfer`
-- `GET /api/v1/plugin/AgentResourceOfficer/p115/health`
-- `GET /api/v1/plugin/AgentResourceOfficer/p115/qrcode`
-- `GET /api/v1/plugin/AgentResourceOfficer/p115/qrcode/check`
-- `POST /api/v1/plugin/AgentResourceOfficer/p115/transfer`
-- `GET /api/v1/plugin/AgentResourceOfficer/p115/pending`
-- `POST /api/v1/plugin/AgentResourceOfficer/p115/pending`
-- `POST /api/v1/plugin/AgentResourceOfficer/p115/pending/resume`
-- `POST /api/v1/plugin/AgentResourceOfficer/p115/pending/cancel`
-- `GET /api/v1/plugin/AgentResourceOfficer/feishu/health`
-- `GET /api/v1/plugin/AgentResourceOfficer/hdhive/health`
-- `GET /api/v1/plugin/AgentResourceOfficer/hdhive/account`
-- `POST /api/v1/plugin/AgentResourceOfficer/hdhive/checkin`
-- `GET /api/v1/plugin/AgentResourceOfficer/hdhive/quota`
-- `GET /api/v1/plugin/AgentResourceOfficer/hdhive/usage_today`
-- `GET /api/v1/plugin/AgentResourceOfficer/hdhive/weekly_free_quota`
-- `POST /api/v1/plugin/AgentResourceOfficer/hdhive/search`
-- `POST /api/v1/plugin/AgentResourceOfficer/hdhive/search_by_keyword`
-- `POST /api/v1/plugin/AgentResourceOfficer/hdhive/unlock`
-- `POST /api/v1/plugin/AgentResourceOfficer/hdhive/unlock_and_route`
-- `POST /api/v1/plugin/AgentResourceOfficer/share/route`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/route`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/pick`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/capabilities`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/readiness`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/startup`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/maintain`
-- `GET/POST /api/v1/plugin/AgentResourceOfficer/assistant/request_templates`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/selfcheck`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/history`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/action`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/actions`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/workflow`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/workflow`
-- `GET/POST/DELETE /api/v1/plugin/AgentResourceOfficer/assistant/preferences`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/sessions`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/sessions/clear`
-- `GET /api/v1/plugin/AgentResourceOfficer/assistant/session`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/session`
-- `POST /api/v1/plugin/AgentResourceOfficer/assistant/session/clear`
-- `POST /api/v1/plugin/AgentResourceOfficer/session/hdhive/search`
-- `POST /api/v1/plugin/AgentResourceOfficer/session/hdhive/pick`
-
-## 当前可用 Agent Tool
-
-- `agent_resource_officer_hdhive_search`
-- `agent_resource_officer_hdhive_pick`
-- `agent_resource_officer_smart_entry`
-- `agent_resource_officer_smart_pick`
-- `agent_resource_officer_help`
-- `agent_resource_officer_capabilities`
-- `agent_resource_officer_readiness`
-- `agent_resource_officer_feishu_health`
-- `agent_resource_officer_request_templates`
-- `agent_resource_officer_history`
-- `agent_resource_officer_execute_action`
-- `agent_resource_officer_execute_actions`
-- `agent_resource_officer_run_workflow`
-- `agent_resource_officer_preferences`
-- `agent_resource_officer_route_share`
-- `agent_resource_officer_sessions`
-- `agent_resource_officer_sessions_clear`
-- `agent_resource_officer_session_state`
-- `agent_resource_officer_session_clear`
-- `agent_resource_officer_p115_qrcode_start`
-- `agent_resource_officer_p115_qrcode_check`
-- `agent_resource_officer_p115_status`
-- `agent_resource_officer_p115_pending`
-- `agent_resource_officer_p115_resume_pending`
-- `agent_resource_officer_p115_cancel_pending`
-
-## 调用示例
-
-### 1. 直接转存夸克分享
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/share/route
-{
-  "url": "https://pan.quark.cn/s/xxxx",
-  "path": "/飞书",
-  "apikey": "你的 MP API Token"
-}
-```
-
-### 2. 直接转存 115 分享
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/share/route
-{
-  "url": "https://115cdn.com/s/xxxx?password=abcd",
-  "path": "/待整理",
-  "apikey": "你的 MP API Token"
-}
-```
-
-### 3. 获取 115 扫码登录二维码
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/p115/qrcode?client_type=alipaymini&apikey=你的 MP API Token
-```
-
-拿到 `uid / time / sign` 后，继续轮询：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/p115/qrcode/check?uid=...&time=...&sign=...&client_type=alipaymini&apikey=你的 MP API Token
-```
-
-扫码确认成功后，`Agent影视助手` 会自动保存扫码会话，不需要再手动粘贴 Cookie。
-
-### 4. 按关键词搜索影巢资源
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/hdhive/search_by_keyword
-{
-  "keyword": "蜘蛛侠",
-  "media_type": "auto",
-  "candidate_limit": 10,
-  "limit": 12,
-  "apikey": "你的 MP API Token"
-}
-```
-
-`media_type` 可以填 `auto`、`movie` 或 `tv`。不确定电影还是剧集时建议用 `auto`，避免新剧或国剧被默认按电影过滤掉。
-
-### 5. 解锁影巢资源后自动落盘
-
-推荐通过 `assistant/route` + `assistant/pick` 选择资源；这样插件会带着资源积分信息做上限校验。默认超过 20 分会被拦截，需要用户确认后手动调高上限或临时设为 `0`。若直接调用 slug 解锁接口，请一并传入资源的 `unlock_points`。
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/hdhive/unlock_and_route
-{
-  "slug": "资源 slug",
-  "unlock_points": 4,
-  "path": "/待整理",
-  "apikey": "你的 MP API Token"
-}
-```
-
-### 6. 用会话方式完成“先选片，再选资源”
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/session/hdhive/search
-{
-  "keyword": "蜘蛛侠",
-  "media_type": "auto",
-  "path": "/待整理",
-  "apikey": "你的 MP API Token"
-}
-```
-
-返回 `session_id` 后，再继续：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/session/hdhive/pick
-{
-  "session_id": "上一步返回的 session_id",
-  "index": 1,
-  "apikey": "你的 MP API Token"
-}
-```
-
-第一次 `pick` 是选影片，第二次 `pick` 是选资源并自动解锁落盘。
-
-为了便于飞书、智能体和 CLI 共用，这个接口同时兼容这些选项字段：
-
-- `index`
-- `choice`
-- `selection`
-- `number`
+### 1. 外部智能体喜欢乱改命令
 
 例如：
 
-```json
-POST /api/v1/plugin/AgentResourceOfficer/session/hdhive/pick
-{
-  "session_id": "上一步返回的 session_id",
-  "choice": 1,
-  "apikey": "你的 MP API Token"
-}
-```
-
-### 7. 用统一智能入口直接调用
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/route
-{
-  "session": "demo-session",
-  "text": "2蜘蛛侠",
-  "apikey": "你的 MP API Token"
-}
-```
-
-也支持：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/route
-{
-  "session": "demo-session",
-  "text": "ps大君夫人",
-  "apikey": "你的 MP API Token"
-}
-```
-
-或：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/route
-{
-  "session": "demo-session",
-  "text": "链接 https://pan.quark.cn/s/xxxx 位置=分享",
-  "apikey": "你的 MP API Token"
-}
-```
-
-外部智能体也可以直接走结构化参数，不必再拼中文命令：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/route
-{
-  "session": "demo-session",
-  "mode": "pansou",
-  "keyword": "大君夫人",
-  "apikey": "你的 MP API Token"
-}
-```
-
-或者：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/route
-{
-  "session": "demo-session",
-  "url": "https://115cdn.com/s/xxxx?password=abcd",
-  "path": "/待整理",
-  "apikey": "你的 MP API Token"
-}
-```
-
-继续选择时：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/pick
-{
-  "session": "demo-session",
-  "index": 1,
-  "apikey": "你的 MP API Token"
-}
-```
-
-在真正执行前，也推荐先探测统一入口能力：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/capabilities?apikey=你的 MP API Token
-```
-
-从 `0.1.32` 开始，`assistant/route` 与 `assistant/pick` 的 `data` 会统一附带：
-
-- `session`
-- `session_id`
-- `session_state`
-- `next_actions`
-
-这样外部智能体拿到回执后，就可以直接根据结构化字段判断当前阶段、可选编号、建议动作和待继续的 115 任务，不必再解析长文本提示。
-
-从 `0.1.33` 开始，还新增了：
-
-- `GET /assistant/sessions`
-- `agent_resource_officer_sessions`
-
-这样外部智能体在重启、断线或多会话并行时，可以先列出当前活跃会话，再决定恢复哪个 session 继续执行。
-
-从 `0.1.34` 开始：
-
-- `smart_entry / smart_pick / help / session / clear` 都支持直接传 `session_id`
-- 新增 `POST /assistant/sessions/clear`
-- 新增 `agent_resource_officer_sessions_clear`
-
-这样外部智能体既可以按 `session_id` 精准恢复指定会话，也可以在需要时按类型、待继续 115 状态、过期状态或全量方式批量清理 assistant 会话。
-
-从 `0.1.35` 开始，`session_state` 和统一回执又新增了：
-
-- `protocol_version`
-- `action_templates`
-
-`action_templates` 会直接给出下一步可调用的 Tool / API / method / body 模板。外部智能体拿到回执后，不必再自己总结“下一步怎么调”，可以直接复用这些结构化模板继续执行。
-从 `0.1.61` 开始，支持低 token 的 assistant 模板会自动在 `body` 和 `action_body` 中带上 `compact=true`，外部智能体原样回放即可得到精简回执。
-从 `0.1.62` 开始，POST JSON 里的 `compact` 也会按布尔语义解析，`"false"`、`"0"`、`"off"` 不会再被误判为开启。
-从 `0.1.63` 开始，`dry_run`、`stop_on_error`、`include_raw_results`、`prefer_unexecuted`、`all_plans`、`stale_only`、`all_sessions`、`execute` 等 POST 布尔字段也统一按同样规则解析。
-从 `0.1.64` 开始，新增 `assistant/selfcheck`，用于快速确认 compact 模板、布尔解析和协议字段是否健康。
-从 `0.1.65` 开始，`assistant/selfcheck` 也下沉为 MP 原生 Tool：`agent_resource_officer_selfcheck`。
-从 `0.1.66` 开始，`assistant/pulse` 和 compact `assistant/capabilities` 会把 `assistant/selfcheck` 放进推荐启动链路，外部智能体开场即可先做协议自检。
-从 `0.1.67` 开始，新增 `assistant/startup` 和 `agent_resource_officer_startup`，一次返回启动状态、自检结果、核心工具、端点、默认目录和恢复建议，减少外部智能体开场多次探测。
-从 `0.1.68` 开始，`assistant/startup` 会直接携带恢复用的 `session` / `session_id` / `action_templates`，外部智能体拿到启动包后可直接执行推荐恢复动作。
-从 `0.1.69` 开始，`assistant/startup` 增加 `maintenance` 计数，直接返回活跃会话、保存计划和待执行计划数量，便于外部智能体判断是否需要恢复或清理。
-从 `0.1.70` 开始，`assistant/startup.maintenance` 增加低风险清理模板：清理过期会话、清理已执行计划；不会自动清理待执行计划。
-从 `0.1.71` 开始，`assistant/plans?compact=true` 的 `total` 表示当前过滤条件命中的计划数，同时返回 `total_all`，避免把全部计划数误判为待执行计划数。
-从 `0.1.72` 开始，`assistant/startup.maintenance` 增加 `stale_sessions`、`saved_plans_executed` 和 `recommended_actions`，外部智能体可直接判断当前是否值得做维护清理。
-从 `0.1.73` 开始，新增 `assistant/maintain` 与 `agent_resource_officer_maintain`，支持 dry-run 查看低风险维护建议，也支持 `execute=true` 执行过期会话和已执行计划清理。
-从 `0.1.74` 开始，`assistant/selfcheck` 会检查 `assistant/maintain` endpoint 和 `agent_resource_officer_maintain` Tool 是否已正确出现在工具清单中。
-从 `0.1.75` 开始，`assistant/capabilities` 增加 `assistant_maintain` 字段说明，并把 `assistant/maintain` 纳入 compact endpoint 和推荐启动链路。
-从 `0.1.76` 开始，`assistant/maintain` 的 GET 请求固定为 dry-run，即使带 `execute=true` 也不会执行清理；只有 POST `execute=true` 才会实际维护。
-从 `0.1.77` 开始，`assistant/selfcheck` 会检查 maintain dry-run 和维护模板 compact 状态，确保维护协议本身也纳入健康检查。
-从 `0.1.78` 开始，`assistant/maintain` 在 POST 执行维护后会写入 `assistant/history`，方便外部智能体审计维护动作；GET dry-run 仍不写历史。
-从 `0.1.79` 开始，`assistant/startup.maintenance` 直接返回 `safe_to_execute`、`execute_method=POST`、`dry_run_method=GET`、`execute_endpoint` 和标准 `execute_body`，外部智能体无需猜维护调用方式。
-从 `0.1.80` 开始，`assistant/startup` 和 `assistant/toolbox` 直接返回统一的 `request_templates`，包含 startup/selfcheck/maintain/workflow/plan/action/pick 的请求模板；`assistant/selfcheck` 也会检查这些模板是否齐全。
-从 `0.1.81` 开始，新增独立只读入口 `assistant/request_templates` 和原生 Tool `agent_resource_officer_request_templates`，外部智能体可只拉请求模板而不拉完整启动包。
-从 `0.1.82` 开始，`assistant/request_templates` 支持 `names` / `name` / `template` 过滤，只返回指定模板，并在回执中提供 `selected_names` 与 `invalid_names`；原生 Tool 同步支持 `names` 参数。
-从 `0.1.83` 开始，`assistant/startup` 的核心 `tools` / `endpoints` 和 `assistant/capabilities?compact=true` 的推荐启动列表都会显式包含请求模板入口，外部智能体只读启动包也能发现模板能力。
-从 `0.1.84` 开始，`assistant/request_templates` 支持 POST JSON body 传入 `names` / `limit`，方便结构化智能体直接用 body 请求过滤模板。
-从 `0.1.85` 开始，`request_templates` 每个模板都会带对应的 MP 原生 `tool` 名，外部智能体可在 HTTP 调用和 MP Tool 调用之间直接切换。
-从 `0.1.86` 开始，`request_templates` 每个模板都会带 `tool_args`，区分 HTTP 参数和 MP Tool 参数，避免外部智能体误用 body/query。
-从 `0.1.87` 开始，`request_templates` 每个模板都会带 `description`，外部智能体可以直接判断模板用途，减少额外解释和 token 消耗。
-从 `0.1.88` 开始，`request_templates` 每个模板都会带 `side_effect` 和 `requires_confirmation`，外部智能体可区分只读、dry-run、计划写入和真实执行动作。
-从 `0.1.89` 开始，`assistant/request_templates` 回执会带 `execution_policy` 汇总，直接列出可免确认执行、需要确认执行和存在写入副作用的模板名。
-从 `0.1.90` 开始，请求模板协议增加 `schema_version=request_templates.v1`，`startup` / `toolbox` 也会携带 `request_templates_schema_version`，方便外部智能体做兼容判断。
-从 `0.1.91` 开始，`assistant/request_templates` 支持 `include_templates=false`，可只返回模板名、无效项和执行策略，进一步减少 token。
-从 `0.1.92` 开始，`request_templates` 每个模板都会带 `cache_scope` 和 `cache_ttl_seconds`，`execution_policy` 也会汇总 `cacheable_templates` 与 `non_cacheable_templates`，方便外部智能体决定缓存策略。
-从 `0.1.93` 开始，`assistant/request_templates` 回执会带 `recommended_sequence`，直接给出推荐调用顺序，外部智能体可以少做一层启动编排。
-从 `0.1.94` 开始，`assistant/request_templates` 回执会带场景化 `recipes`，外部智能体可直接选择“安全启动”“先计划后执行”“继续既有会话”等预设流程。
-从 `0.1.95` 开始，`recipes` 会直接带 `requires_confirmation`、`has_write_effect` 和最小 `cache_ttl_seconds`，自检也会验证这些汇总特征。
-从 `0.1.96` 开始，`assistant/request_templates` 回执会直接给出 `recommended_recipe` 与 `recommended_recipe_reason`，外部智能体不必再自己挑选最适合的 recipe。
-从 `0.1.97` 开始，`assistant/request_templates` 回执会带 `recommended_recipe_detail`，直接给出推荐流程的首个模板、确认模板和写入模板，外部智能体可直接照此编排。
-从 `0.1.98` 开始，`recommended_recipe_detail` 会带 `first_call`，直接给出首个模板的 HTTP 调用和 MP Tool 调用参数，外部智能体可直接执行第一步。
-从 `0.1.99` 开始，`recommended_recipe_detail` 会带完整 `calls` 列表，外部智能体可按推荐流程逐步执行。
-从 `0.1.100` 开始，`assistant/request_templates` 与推荐调用会明确给出 `auth.mode=query_apikey`，避免外部智能体误用 Bearer 鉴权。
-从 `0.1.101` 开始，推荐调用会带 `url_template`，外部智能体可用 `{base_url}` 和 `{MP_API_TOKEN}` 直接拼出 HTTP 调用地址。
-从 `0.1.102` 开始，`assistant/request_templates` 支持 `recipe=` 参数，可直接按 `safe_bootstrap`、`plan_then_confirm`、`continue_existing_session` 或 `maintenance_cycle` 拉取整套推荐流程。
-从 `0.1.103` 开始，`recipe=` 支持 `plan`、`maintain`、`continue`、`bootstrap` 等短别名，回执会带 `requested_recipe`、`selected_recipe` 和 `recipe_aliases`。
-从 `0.1.104` 开始，`recommended_recipe_detail` 会带 `first_confirmation_template` 和 `confirmation_message`，方便外部智能体在写入前提示用户确认。
-从 `0.1.105` 开始，`assistant/request_templates` 的文本摘要会直接显示推荐流程、首步调用和确认提示，方便低 token 场景直接阅读。
-从 `0.1.106` 开始，`assistant/startup` 会带 `recommended_request_templates`，外部智能体启动后可直接按推荐参数拉取低 token 模板流程。
-从 `0.1.107` 开始，`assistant/startup` 会根据恢复状态动态推荐 `bootstrap` 或 `continue` 模板流程。
-
-从 `0.1.36` 开始，还新增了：
-
-- `POST /assistant/action`
-- `agent_resource_officer_execute_action`
-
-这样外部智能体不只可以“读模板”，还可以直接把 `action_templates` 里的 `name + action_body` 回传给 Agent影视助手 执行，进一步减少上层自定义映射逻辑。
-
-从 `0.1.37` 开始，还新增了：
-
-- `POST /assistant/actions`
-- `agent_resource_officer_execute_actions`
-
-这样外部智能体可以一次提交多个 `action_body`，让 Agent影视助手 在同一个请求里顺序执行多步动作。默认只返回精简执行摘要，进一步减少多次往返和上层 token 消耗；只有显式需要时才附带每一步原始返回。
-
-例如：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/actions
-{
-  "session": "demo-batch",
-  "actions": [
-    {
-      "name": "start_pansou_search",
-      "keyword": "大君夫人"
-    },
-    {
-      "name": "pick_pansou_result",
-      "choice": 1
-    }
-  ],
-  "stop_on_error": true,
-  "apikey": "你的 MP API Token"
-}
-```
-
-从 `0.1.38` 开始，还新增了：
-
-- `GET /assistant/workflow`
-- `POST /assistant/workflow`
-- `agent_resource_officer_run_workflow`
-
-这样外部智能体可以直接按预设场景调用，不需要自己拼 `actions` 数组。当前内置工作流包括：
-
-- `pansou_search`
-- `pansou_transfer`
-- `hdhive_candidates`
-- `hdhive_unlock`
-- `share_transfer`
-- `p115_login_start`
-- `p115_status`
-
-例如：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/workflow
-{
-  "session": "demo-workflow",
-  "name": "pansou_transfer",
-  "keyword": "大君夫人",
-  "choice": 1,
-  "apikey": "你的 MP API Token"
-}
-```
-
-从 `0.1.39` 开始，还新增了：
-
-- `GET /assistant/readiness`
-- `agent_resource_officer_readiness`
-
-这个接口是给外部智能体启动前使用的轻量探针，会返回插件版本、是否启用、115/影巢/夸克状态、活跃会话数量、推荐入口和启动提示。外部智能体可以先调它，看到 `can_start=true` 后再进入 `assistant/workflow` 或 `assistant/actions`。
-
-从 `0.2.65` 开始，`assistant/request_templates` 与 `recommended_recipe_detail` 会继续附带模板编排契约，直接说明：
-
-- 服务端和客户端各自负责什么
-- 推荐首调 `startup`
-- 推荐判断 `decide --summary-only`
-- 推荐执行 `route --summary-only`
-- 推荐跟进 `followup --summary-only`
-- 外部智能体优先读取哪些 compact 字段
-
-这样新接入的外部智能体、MP 内置智能体和飞书入口可以复用同一套最小执行流，不再各自拼一套启动逻辑。
-
-从 `0.2.66` 开始，`assistant/request_templates` 还会直接带 `entry_playbooks`，把三类入口各自该调什么 helper / HTTP / Tool 直接列出来：
-
-- `external_agent`
-- `mp_builtin_agent`
-- `feishu_channel`
-
-每类入口都会带最小步骤、推荐读取字段和实际执行入口，方便接入方少读文档、少写胶水代码。
-
-从 `0.1.40` 开始，还新增了：
-
-- `GET /assistant/history`
-- `agent_resource_officer_history`
-
-这个接口会记录最近的批量动作和预设工作流执行摘要，包括会话、动作名、成功状态、时间、简短结果和每步摘要。外部智能体在断线、超时或用户询问“刚才跑到哪了”时，可以先查它再决定是否继续、重试或清理会话。
-
-从 `0.1.41` 开始，`POST /assistant/workflow` 支持 `dry_run=true`；从 `0.1.42` 开始，`dry_run` 会持久化计划并返回 `plan_id`：
-
-- 只生成 `workflow_actions`
-- 不实际搜索、解锁或转存
-- 返回 `execute_body`，外部智能体确认后可原样改为 `dry_run=false` 执行
-- 返回 `execute_plan_body`，外部智能体也可以只携带 `plan_id` 调用 `/assistant/plan/execute`
-
-例如：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/workflow?apikey=你的MP_API_TOKEN
-{
-  "session": "demo-plan",
-  "name": "pansou_transfer",
-  "keyword": "大君夫人",
-  "choice": 1,
-  "dry_run": true
-}
-```
-
-随后可直接执行保存的计划：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/plan/execute?apikey=你的MP_API_TOKEN
-{
-  "plan_id": "plan-..."
-}
-```
-
-从 `0.1.43` 开始，保存计划也可以独立查询和清理；从 `0.1.56` 开始，计划列表支持 `compact=true` 低 token 回执：
-
-- `GET /assistant/plans`：查看最近保存的计划，可按 `session`、`session_id`、`executed` 过滤
-- `POST /assistant/plans/clear`：按 `plan_id`、会话、执行状态或 `all_plans=true` 清理计划
-- `agent_resource_officer_plans`：MP 智能助手查看计划
-- `agent_resource_officer_plans_clear`：MP 智能助手清理计划
-
-常用查询：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/plans?apikey=你的MP_API_TOKEN&executed=false&compact=true
-```
-
-清理单个计划：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/plans/clear?apikey=你的MP_API_TOKEN
-{
-  "plan_id": "plan-..."
-}
-```
-
-从 `0.1.44` 开始，`assistant/plan/execute` 还支持按会话自动恢复最近计划：
-
-- 传 `plan_id`：精确执行指定计划
-- 不传 `plan_id`，只传 `session` 或 `session_id`：默认优先执行该会话下最近一条“未执行”计划
-- 如果该会话下没有未执行计划，会自动回退到最近一条计划，便于断线恢复
-
-例如：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/plan/execute?apikey=你的MP_API_TOKEN
-{
-  "session": "demo-plan"
-}
-```
-
-从 `0.1.45` 开始，计划恢复动作会直接进入结构化回执：
-
-- `assistant/session` 的 `session_state.saved_plan` 会显示当前会话最近计划
-- 若存在待执行计划，`action_templates` 会包含 `execute_latest_plan`
-- `assistant/readiness` 的 `saved_plans.action_templates` 会列出最近待执行计划的直接执行模板
-
-从 `0.1.46` 开始，`execute_latest_plan` 和 `execute_plan` 也能通过 `assistant/action` 执行。外部智能体可以把模板里的 `action_body` 原样回传给：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/action?apikey=你的MP_API_TOKEN
-{
-  "name": "execute_latest_plan",
-  "session": "demo-plan",
-  "prefer_unexecuted": true
-}
-```
-
-从 `0.1.47` 开始，`assistant/sessions` 也会直接暴露计划恢复信号：
-
-- 每个会话摘要会带 `has_pending_plan` 和最近计划摘要
-- `assistant/sessions` 的 `action_templates` 会包含 `execute_session_latest_plan`
-- 外部智能体拿到 `session_id` 后，可以直接按模板恢复该会话最近计划
-
-从 `0.1.48` 开始，`assistant/sessions` 也会列出“只有计划、没有会话缓存”的 session：
-
-- `dry_run` 之后即使还没产生会话状态，也能从 `assistant/sessions` 看到该 session
-- 这类会话会显示为 `assistant_workflow_plan / planned`
-- 外部智能体可以从会话列表直接恢复，不必先调用 `assistant/plans`
-
-从 `0.1.49` 开始，恢复协议被提炼成统一结构字段：
-
-- `assistant/session`、统一回执、`assistant/readiness`、`assistant/sessions` 都会带 `recovery`
-- `recovery` 会明确给出当前最推荐的恢复模式、推荐动作、推荐 Tool 和可直接复用的 `action_template`
-- `assistant/action` 现在也支持 `execute_session_latest_plan`，会话列表里的恢复模板可以原样回放
-
-从 `0.1.50` 开始，`assistant/session` 与 `assistant/sessions` 也回到统一包裹形状：
-
-- 返回里会有标准字段：`protocol_version / action / ok / session / session_id / session_state / next_actions / action_templates / recovery`
-- 同时继续保留原有的会话摘要字段，避免已有调用方断掉
-- 外部智能体现在可以把 `session / sessions / readiness / route / pick` 全部按同一套回执协议消费
-
-从 `0.1.51` 开始，推荐把断线续跑统一交给 `assistant/recover`：
-
-- `GET /assistant/recover`：只查看当前最推荐的恢复动作
-- `POST /assistant/recover`：可传 `session` 或 `session_id` 精确检查，也可不传让插件从全局会话和计划里自动挑选
-- `execute=true` 时会直接执行推荐动作，适合外部智能体把“刚才到哪了，继续”压成一个稳定入口
-- 对应 MP 智能助手 Tool：`agent_resource_officer_recover`
-
-示例：
-
-```json
-POST /api/v1/plugin/AgentResourceOfficer/assistant/recover?apikey=你的MP_API_TOKEN
-{
-  "session": "demo-plan",
-  "execute": true
-}
-```
-
-从 `0.1.52` 开始，`assistant/recover` 支持低 token 回执：
-
-- 传 `compact=true` 时不会返回完整 `session_state` 和 `sessions`
-- 只保留恢复模式、推荐动作、推荐 Tool、当前 session、最小 `action_templates`
-- `agent_resource_officer_recover` 默认使用低 token 回执，适合外部智能体高频轮询
-
-示例：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/recover?apikey=你的MP_API_TOKEN&compact=true
-```
-
-从 `0.1.53` 开始，外部智能体启动前建议先调 `assistant/pulse`：
-
-- 返回固定小结构：版本、启用状态、115/影巢/夸克关键状态、警告、最佳恢复建议
-- 不返回完整会话列表，适合 WorkBuddy、飞书桥接、MP 智能助手每次开场快速探测
-- 对应 MP 智能助手 Tool：`agent_resource_officer_pulse`
-
-示例：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/pulse?apikey=你的MP_API_TOKEN
-```
-
-从 `0.1.54` 开始，外部智能体初始化提示词可先读取 `assistant/toolbox`：
-
-- 返回轻量工具清单：推荐启动顺序、关键端点、Tool 名、workflow 名、action 名、默认目录和命令示例
-- 不返回会话状态，适合做系统提示或工具说明缓存
-- 对应 MP 智能助手 Tool：`agent_resource_officer_toolbox`
-
-示例：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/toolbox?apikey=你的MP_API_TOKEN
-```
-
-从 `0.1.64` 开始，也可以调用轻量自检：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/selfcheck?apikey=你的MP_API_TOKEN
-```
-
-对应 MP 智能助手 Tool：`agent_resource_officer_selfcheck`
-
-从 `0.1.67` 开始，外部智能体更推荐先调用启动聚合包：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/startup?apikey=你的MP_API_TOKEN
-```
-
-对应 MP 智能助手 Tool：`agent_resource_officer_startup`
-
-从 `0.1.55` 开始，`assistant/session` 和 `assistant/sessions` 支持低 token 回执；从 `0.1.56` 开始，`assistant/history` 和 `assistant/plans` 也支持同样的精简模式；从 `0.1.57` 开始，`assistant/actions`、`assistant/workflow` 和 `assistant/plan/execute` 也支持 `compact=true`；从 `0.1.58` 开始，启动入口 `assistant/capabilities` 和 `assistant/readiness` 也支持 `compact=true`；从 `0.1.59` 开始，`assistant/action` 单动作执行也支持 `compact=true`；从 `0.1.60` 开始，`assistant/route` 和 `assistant/pick` 主交互链路也支持 `compact=true`；从 `0.1.61` 开始，`action_templates` 默认携带 `compact=true`：
-
-- `compact=true` 时不会再嵌套完整 `session_state`
-- `assistant/session` 返回当前会话阶段、恢复建议、待执行计划和待继续 115 任务摘要
-- `assistant/sessions` 返回活跃会话列表摘要，适合外部智能体做会话选择
-- `assistant/history` 返回最近执行动作、成功状态和简短结果
-- `assistant/plans` 返回计划 ID、执行状态和可直接复用的执行模板
-- `assistant/actions` 返回批量动作执行摘要
-- `assistant/workflow` 的 dry_run 返回 plan_id 和执行模板，不再携带完整动作数组
-- `assistant/plan/execute` 返回计划执行摘要，不再携带完整动作数组
-- `assistant/capabilities` 返回能力、工作流和 Tool 名称清单
-- `assistant/readiness` 返回服务布尔状态、待执行计划和恢复建议
-- `assistant/action` 返回单动作执行摘要，适合 action_template 原样回放
-- `assistant/route` 返回搜索、直链、115 状态等智能入口摘要
-- `assistant/pick` 返回选择、详情、翻页、解锁落盘等继续处理摘要
-
-示例：
-
-```text
-GET /api/v1/plugin/AgentResourceOfficer/assistant/capabilities?apikey=你的MP_API_TOKEN&compact=true
-GET /api/v1/plugin/AgentResourceOfficer/assistant/readiness?apikey=你的MP_API_TOKEN&compact=true
-GET /api/v1/plugin/AgentResourceOfficer/assistant/session?apikey=你的MP_API_TOKEN&session=default&compact=true
-GET /api/v1/plugin/AgentResourceOfficer/assistant/sessions?apikey=你的MP_API_TOKEN&compact=true
-GET /api/v1/plugin/AgentResourceOfficer/assistant/history?apikey=你的MP_API_TOKEN&compact=true
-GET /api/v1/plugin/AgentResourceOfficer/assistant/plans?apikey=你的MP_API_TOKEN&compact=true
-POST /api/v1/plugin/AgentResourceOfficer/assistant/route?apikey=你的MP_API_TOKEN
-{"text":"盘搜搜索 大君夫人","compact":true}
-POST /api/v1/plugin/AgentResourceOfficer/assistant/pick?apikey=你的MP_API_TOKEN
-{"session":"default","choice":1,"compact":true}
-POST /api/v1/plugin/AgentResourceOfficer/assistant/action?apikey=你的MP_API_TOKEN
-{"name":"show_115_status","compact":true}
-POST /api/v1/plugin/AgentResourceOfficer/assistant/workflow?apikey=你的MP_API_TOKEN
-{"name":"p115_status","dry_run":true,"compact":true}
-```
+- 把 `云盘搜索` 偷换成 `盘搜搜索`
+- 把 `更新检查` 改成普通搜索
+- 把原始结果改写成“推荐资源 / 分析结论”
+
+如果你接外部智能体，优先看：
+
+- [`AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md`](../docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md)
+
+### 2. 影巢 Cookie 不建议手工抄
+
+如果影巢签到失效，不建议手工找 Cookie。
+
+更稳的方式是：
+
+- 在浏览器登录 `https://hdhive.com`
+- 然后运行本机导出工具
+
+### 3. 夸克失败不一定是 Cookie 失效
+
+这些情况不要误判成 Cookie 问题：
+
+- 分享受限
+- `41031`
+- 分享者封禁
+
+只有明确出现：
+
+- `require login [guest]`
+- `夸克登录态已过期`
+- `当前夸克登录态不足`
+
+才优先走夸克 Cookie 修复。
+
+## 进一步阅读
+
+如果你只是新手用户，到这里已经够用了。
+
+如果你还想继续看更细的安装、接入和远程用法，再看这些文档：
+
+- [`PLUGIN_INSTALL.md`](../docs/PLUGIN_INSTALL.md)
+- [`AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md`](../docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md)
+- [`AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md`](../docs/AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md)
