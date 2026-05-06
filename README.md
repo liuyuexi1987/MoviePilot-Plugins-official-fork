@@ -171,13 +171,13 @@ docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md
 
 下面是当前仓库里所有主要插件。首页只给一行说明；详细作用、配置和用法请点进去看各自 README。
 
-| 插件 | 主要作用 | 详细说明 |
-| --- | --- | --- |
-| `AgentResourceOfficer` / Agent影视助手 | 当前主线插件，统一承接盘搜、影巢、115、夸克、更新检查、Cookie 修复和智能体入口 | [查看说明](./AgentResourceOfficer/README.md) |
-| `AIRecognizerEnhancer` / AI识别增强 | MoviePilot 原生识别失败后的本地 LLM 兜底和失败样本治理 | [查看说明](./AIRecognizerEnhancer/README.md) |
-| `FeishuCommandBridgeLong` / 飞书命令桥接 | 旧飞书长连接兼容/备份入口；新环境优先使用 Agent影视助手 内置入口 | [查看说明](./FeishuCommandBridgeLong/README.md) |
-| `HdhiveOpenApi` / 影巢 OpenAPI | 影巢搜索、解锁、签到、配额查询、115 转存的独立 OpenAPI 插件 | [查看说明](./HdhiveOpenApi/README.md) |
-| `QuarkShareSaver` / 夸克分享转存 | 夸克分享链接直转自己的夸克目录，适合作为轻量执行入口 | [查看说明](./QuarkShareSaver/README.md) |
+| 插件 | 当前版本 | 主要作用 | 详细说明 |
+| --- | --- | --- | --- |
+| `AgentResourceOfficer` / Agent影视助手 | `0.2.68` | 当前主线插件，统一承接盘搜、影巢、115、夸克、更新检查、Cookie 修复和智能体入口 | [查看说明](./AgentResourceOfficer/README.md) |
+| `AIRecognizerEnhancer` / AI识别增强 | `0.1.12` | MoviePilot 原生识别失败后的本地 LLM 兜底和失败样本治理 | [查看说明](./AIRecognizerEnhancer/README.md) |
+| `FeishuCommandBridgeLong` / 飞书命令桥接 | `0.5.26` | 旧飞书长连接兼容/备份入口；新环境优先使用 Agent影视助手 内置入口 | [查看说明](./FeishuCommandBridgeLong/README.md) |
+| `HdhiveOpenApi` / 影巢 OpenAPI | `0.3.0` | 影巢搜索、解锁、签到、配额查询、115 转存的独立 OpenAPI 插件 | [查看说明](./HdhiveOpenApi/README.md) |
+| `QuarkShareSaver` / 夸克分享转存 | `0.1.0` | 夸克分享链接直转自己的夸克目录，适合作为轻量执行入口 | [查看说明](./QuarkShareSaver/README.md) |
 
 ---
 
