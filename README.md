@@ -193,10 +193,14 @@ docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md
 ## 当前状态
 
 - 当前推荐主线插件：`Agent影视助手`
+- 当前发布版本：`0.2.68`
+- 当前版本：
+  - `0.2.68`
 - 当前插件版本：`0.2.68`
-- 当前 skill helper 版本：`0.1.42`
+- 当前 Skill helper 版本：`0.1.42`
 - 当前仓库许可证：`GPL-3.0`
 - 当前发布页：[v0.2.68](https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.68)
+- 维护命令说明：[`docs/MAINTENANCE_COMMANDS.md`](./docs/MAINTENANCE_COMMANDS.md)
 
 ## 许可证
 

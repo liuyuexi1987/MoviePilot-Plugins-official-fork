@@ -4,6 +4,9 @@
 
 - 普通用户该装什么
 - 普通用户怎么开始用
+- 资源主线：`Agent影视助手 / AgentResourceOfficer 0.2.68`
+- 当前 Skill helper：`agent-resource-officer 0.1.42`
+- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.68>
 
 如果你只是想把插件装起来，不需要看打包、发布、维护命令。
 
@@ -128,4 +131,4 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 
 如果你后面真的要自己打包、发布或维护仓库，再去看：
 
-- [MAINTENANCE_COMMANDS.md](./MAINTENANCE_COMMANDS.md)
+- [docs/MAINTENANCE_COMMANDS.md](./MAINTENANCE_COMMANDS.md)

@@ -207,3 +207,9 @@
 - [`AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md`](../docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md)
 - [`AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md`](../docs/AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md)
 - [`AI识别增强 README`](../AIRecognizerEnhancer/README.md)
+
+## 当前状态
+
+- 当前版本：`0.2.68`
+- 当前 helper 版本：`0.1.42`
+- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.68>

@@ -100,7 +100,7 @@ MoviePilot 原版智能体现在也提供了一类内置能力：
 ## 当前状态
 
 - 当前版本：`0.1.12`
-- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.67>
+- 当前发布页：<https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.68>
 - 当前主线：`MoviePilot 内置 LLM 本地兜底`
 - `0.1.12` 已兼容 MoviePilot 最新 `app.agent.llm` 路径和异步 `get_llm()` 接口，修复最新版 MP 下加载失败问题
 - `0.1.11` 已补上识别词建议模型退化时的精确规则兜底，并同步插件市场版本
