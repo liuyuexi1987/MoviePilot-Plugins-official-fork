@@ -43,14 +43,14 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 
 如果你拿到的是 Release 里的 ZIP 包，也可以在 MoviePilot 插件页直接本地上传安装。
 
-普通用户只需要认这几个包：
+普通用户只需要认这几个包。当前常见文件名就是：
 
-- `AgentResourceOfficer-<版本>.zip`
-- `AIRecognizerEnhancer-<版本>.zip`
+- `AgentResourceOfficer-0.2.68.zip`
+- `AIRecognizerEnhancer-0.1.12.zip`
 - 如果你确实还要旧兼容入口，再按需装：
-  - `FeishuCommandBridgeLong-<版本>.zip`
-  - `HdhiveOpenApi-<版本>.zip`
-  - `QuarkShareSaver-<版本>.zip`
+  - `FeishuCommandBridgeLong-0.5.26.zip`
+  - `HdhiveOpenApi-0.3.0.zip`
+  - `QuarkShareSaver-0.1.0.zip`
 
 ## 接外部智能体时怎么装
 
@@ -106,7 +106,6 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 - `FeishuCommandBridgeLong`
 - `HdhiveOpenApi`
 - `QuarkShareSaver`
-- `P115StrmHelper`（这个不在本仓库）
 
 它们组合起来时的大致分工是：
 
@@ -116,10 +115,8 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
   - 负责影巢搜索、解锁、签到、配额
 - `QuarkShareSaver`
   - 负责夸克分享直转
-- `P115StrmHelper`
-  - 负责 115 转存、整理、STRM
 
-也就是说，旧组合是“多插件拼一条链”；现在更推荐把这条链尽量收进：
+也就是说，旧组合更像“多插件拼一条链”；现在更推荐把搜索、转存、签到和修复尽量收进：
 
 - `AgentResourceOfficer`
 
