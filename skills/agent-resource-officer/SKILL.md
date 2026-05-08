@@ -144,6 +144,8 @@ python3 scripts/aro_request.py external-agent --full
 
 When a user says plain `搜索 <片名>` or `找 <片名>`, pass that text through to `route` first. Do not guess that the user meant HDHive, and do not continue an old result session by sending `选择 1` unless the user actually chose an item in the current round. Default plain search should start from PanSou.
 
+When the user clearly refers to a previously shown numbered result, for example `刚才那个 22`、`上次的 #22`、`把原来的 22 转存`、`下载 10`、`选择 14`, do not restart search first. Reuse the current session, or recover the latest matching session with `decide --summary-only` / `sessions` / `session`, then continue with `pick`. Only restart the search when the old session is truly gone and cannot be recovered.
+
 When a user says `转存 <片名>`, route that text directly first. Treat it as a cloud-transfer intent: prefer PanSou + HDHive, and let AgentResourceOfficer execute the one-stop transfer flow instead of rewriting it into a PT download request.
 
 When a user says `下载 <片名>`, route that text directly first. Treat it as an MP/PT direct-download intent: prefer MoviePilot native PT search/download, and do not silently rewrite it into a cloud-drive transfer request.
@@ -193,6 +195,8 @@ For ordinary search, cloud search, HDHive resource lists, and update-check lists
 For cloud search results, prefer the plugin's raw combined layout: keep the `盘搜结果` section, keep the `影巢结果` section, and keep raw links when the plugin returned them. Do not rewrite the answer into a guide like “最佳选择/推荐资源/分析结论/要不要我帮你下载”, and do not hide the source-specific sections behind your own summary.
 
 For cloud search, never renumber items per source in your own prose. If the plugin returned global numbering like `1..16` plus `17..24`, preserve that exact numbering. Do not convert it into separate `115 1..6 / 夸克 1..10` local indices, and do not collapse the response into a custom “标题/画质/日期/链接” table that drops the plugin's next-step instructions.
+
+When `影巢搜索` or `云盘搜索` falls back to PanSou because HDHive returned no usable result, keep the plugin's original fallback text and numbered resource list. Do not rewrite it into your own progress bulletin like “有新集了”“现在两边都有了” or a custom compact table that hides links, numbering, or next-step hints.
 
 When a Quark transfer fails, do not invent a path diagnosis unless the plugin explicitly said so. If the plugin only returned `夸克转存失败：无法转存到 /飞书`, treat the cause as unknown and do not add guesses like “默认转存目录不存在” or “换成 path=/ 试试” on your own. Only recommend a different path when the plugin itself clearly pointed to a path problem or the user explicitly asked to try another path.
 
