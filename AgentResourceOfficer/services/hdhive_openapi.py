@@ -102,6 +102,83 @@ class HDHiveOpenApiService:
     def api_url(self, path: str) -> str:
         return f"{self.base_url.rstrip('/')}{path}"
 
+    def tmdb_web_search_url(self, media_type: str, keyword: str) -> str:
+        query = quote(keyword)
+        if media_type == "movie":
+            return f"https://www.themoviedb.org/search/movie?query={query}"
+        if media_type == "tv":
+            return f"https://www.themoviedb.org/search/tv?query={query}"
+        return f"https://www.themoviedb.org/search?query={query}"
+
+    def tmdb_web_search_headers(self) -> Dict[str, str]:
+        return {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+            "User-Agent": getattr(settings, "USER_AGENT", "MoviePilot") if settings is not None else "MoviePilot",
+        }
+
+    @staticmethod
+    def extract_year_from_release(value: Any) -> str:
+        match = re.search(r"(19|20)\d{2}", str(value or ""))
+        return match.group(0) if match else ""
+
+    def tmdb_web_search_candidates(
+        self,
+        keyword: str,
+        media_type: str = "auto",
+        year: str = "",
+        candidate_limit: int = 10,
+    ) -> Tuple[List[Dict[str, Any]], str]:
+        keyword = self.normalize_text(keyword)
+        media_type = self.normalize_text(media_type).lower() or "auto"
+        year = self.normalize_text(year)
+        candidate_limit = min(50, max(1, self.safe_int(candidate_limit, 10)))
+        search_order = [media_type] if media_type in {"movie", "tv"} else ["tv", "movie"]
+        pattern = re.compile(
+            r'href="/(?P<media_type>tv|movie)/(?P<tmdb_id>\d+)"[^>]*>\s*'
+            r'<div[^>]*>\s*'
+            r'<img alt="(?P<title>[^"]+)"[^>]*srcset="(?P<srcset>[^"]*)"[^>]*src="(?P<src>[^"]+)"[^>]*>'
+            r'.*?<span class="release_date[^"]*">(?P<release>[^<]+)</span>',
+            re.S,
+        )
+        candidates: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        errors: List[str] = []
+        for search_type in search_order:
+            try:
+                response = requests.get(
+                    self.tmdb_web_search_url(search_type, keyword),
+                    headers=self.tmdb_web_search_headers(),
+                    timeout=self.timeout,
+                    proxies=getattr(settings, "PROXY", None) if settings is not None else None,
+                )
+                response.raise_for_status()
+            except Exception as exc:
+                errors.append(f"{search_type}:{exc}")
+                continue
+            html = response.text or ""
+            for match in pattern.finditer(html):
+                item_type = self.normalize_text(match.group("media_type")).lower()
+                tmdb_id = self.normalize_text(match.group("tmdb_id"))
+                if not tmdb_id or tmdb_id in seen_ids:
+                    continue
+                item_year = self.extract_year_from_release(match.group("release"))
+                if year and item_year and item_year != year:
+                    continue
+                seen_ids.add(tmdb_id)
+                candidates.append(
+                    {
+                        "title": self.normalize_text(match.group("title")),
+                        "year": item_year,
+                        "media_type": item_type or search_type,
+                        "tmdb_id": tmdb_id,
+                        "poster_path": self.normalize_text(match.group("src")),
+                    }
+                )
+                if len(candidates) >= candidate_limit:
+                    return candidates, ""
+        return candidates, "；".join(errors)
+
     def request(
         self,
         method: str,
@@ -185,16 +262,22 @@ class HDHiveOpenApiService:
             return False, {"message": "keyword 不能为空", "query": {"keyword": "", "media_type": media_type}}, "keyword 不能为空"
         if type_filter and type_filter not in {"movie", "tv"}:
             return False, {"message": "媒体类型必须是 movie、tv 或 auto", "query": {"keyword": keyword, "media_type": media_type}}, "媒体类型必须是 movie、tv 或 auto"
+        chain_error = ""
+        medias = []
         if MediaChain is None:
-            return False, {"message": "MoviePilot MediaChain 不可用", "query": {"keyword": keyword, "media_type": media_type}}, "MoviePilot MediaChain 不可用"
-
+            chain_error = "MoviePilot MediaChain 不可用"
+        else:
+            try:
+                _, medias = await MediaChain().async_search(title=keyword)
+            except Exception as exc:
+                chain_error = f"TMDB 解析失败: {exc}"
         try:
-            _, medias = await MediaChain().async_search(title=keyword)
-        except Exception as exc:
-            return False, {"message": f"TMDB 解析失败: {exc}", "query": {"keyword": keyword, "media_type": media_type}}, f"TMDB 解析失败: {exc}"
+            medias = list(medias or [])
+        except Exception:
+            medias = []
 
         candidates: List[Dict[str, Any]] = []
-        for media in medias or []:
+        for media in medias:
             item_type = self.media_type_text(getattr(media, "type", ""))
             item_year = self.normalize_text(getattr(media, "year", ""))
             if type_filter and item_type and item_type != type_filter:
@@ -216,6 +299,21 @@ class HDHiveOpenApiService:
             if len(candidates) >= candidate_limit:
                 break
 
+        fallback_used = False
+        fallback_message = ""
+        if not candidates:
+            web_candidates, web_error = self.tmdb_web_search_candidates(
+                keyword=keyword,
+                media_type=media_type,
+                year=year,
+                candidate_limit=candidate_limit,
+            )
+            if web_candidates:
+                candidates = web_candidates
+                fallback_used = True
+            else:
+                fallback_message = web_error
+
         result = {
             "time": self.tz_now().strftime("%Y-%m-%d %H:%M:%S"),
             "ok": bool(candidates),
@@ -223,8 +321,21 @@ class HDHiveOpenApiService:
             "message": "success" if candidates else "未找到可用于影巢搜索的 TMDB 候选",
             "query": {"keyword": keyword, "media_type": media_type, "year": year},
             "candidates": candidates,
-            "meta": {"total": len(candidates)},
+            "meta": {
+                "total": len(candidates),
+                "candidate_source": "tmdb_web_search" if fallback_used else "mediainfo_chain",
+            },
         }
+        if fallback_used:
+            result["fallback_reason"] = chain_error or "MediaChain 未返回候选"
+        elif chain_error:
+            result["chain_warning"] = chain_error
+        if not candidates and fallback_message:
+            result["fallback_error"] = fallback_message
+            if chain_error:
+                result["message"] = f"{chain_error}；TMDB 网页搜索兜底也未命中"
+        elif not candidates and chain_error:
+            result["message"] = chain_error
         return bool(candidates), result, result["message"]
 
     def search_resources(self, media_type: str, tmdb_id: str) -> Tuple[bool, Dict[str, Any], str]:
