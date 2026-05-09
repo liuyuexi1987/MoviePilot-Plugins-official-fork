@@ -68,6 +68,16 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 
 - `agent-resource-officer` skill / helper
 
+如果你的客户端支持官方 MCP，也可以直接接：
+
+```text
+MCP 地址：http://你的MP地址:3000/api/v1/mcp
+认证头：X-API-KEY=你的 MoviePilot API_TOKEN
+```
+
+这条路适合直接使用 `MoviePilot` 原生工具，以及插件暴露出来的 `agent_resource_officer_*` 工具。
+如果你需要固定命令、资源流约束、会话续接、编号选择和 Cookie 修复链，还是继续用 `skill / helper` 这条主线。
+
 如果你后面还要用：
 
 - `刷新影巢Cookie`

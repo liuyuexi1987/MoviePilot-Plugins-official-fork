@@ -696,11 +696,13 @@ class FeishuChannel:
             if not results:
                 return f"已识别 {self._format_media_label(mediainfo, season)}，但暂未搜索到资源。"
             self._set_search_cache(cache_key, keyword, mediainfo, results)
+            preview_limit = 20
+            preview_results = results[:preview_limit]
             lines = [
                 f"已识别：{self._format_media_label(mediainfo, season)}",
-                f"共找到 {len(results)} 条资源，展示前 {min(len(results), 10)} 条：",
+                f"共找到 {len(results)} 条资源，展示前 {len(preview_results)} 条：",
             ]
-            for idx, context in enumerate(results[:10], start=1):
+            for idx, context in enumerate(preview_results, start=1):
                 torrent = context.torrent_info
                 title = str(torrent.title or "").strip()
                 size = StringUtils.str_filesize(torrent.size) if torrent.size else "未知"

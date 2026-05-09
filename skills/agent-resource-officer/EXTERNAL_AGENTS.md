@@ -32,6 +32,11 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 ## 原则
 
 - 外部智能体只负责理解、调度和展示。
+- 只有在当前客户端已经真实接入 MoviePilot 官方 MCP，并且当前会话里能看到对应 MCP 工具时，才允许走 MCP；否则继续走 `agent-resource-officer` Skill/helper，不要假装自己已经在用 MCP。
+- MCP 只优先用于 MoviePilot 管理查询，例如插件列表、下载器状态、站点状态、下载/入库历史、工作流和调度器；不要把片名资源搜索也自动切到 MCP。
+- 盘搜、影巢、115、夸克、MP/PT 搜索、编号选择、分页、Cookie 修复、飞书入口、更新检查编排这类资源流能力，仍优先走 `agent-resource-officer`。
+- 用户命令如果明显属于资源流，例如 `搜索/找/盘搜/云盘搜索/影巢/MP搜索/PT搜索/转存/夸克转存/115转存/下载/更新/更新检查/检查/选择/详情/n/下一页/编号`，不要先调用 MCP、tool_search、curl 或 raw API 探测，直接走 `agent-resource-officer` 的 `route/pick`。
+- 处理 `MP 搜索 片名` / `PT 搜索 片名` 时，第一步只能是 `python3 scripts/aro_request.py route "<用户原话>" --session <session>`；不要先调用 `search_media`、`search_torrents`、TMDB、MoviePilot raw API 或 MCP。
 - 115 云盘、夸克云盘等云盘资源搜索、候选选择、解锁、转存、115 登录状态全部交给 `AgentResourceOfficer`。
 - 不在提示词里写 Cookie、Token、API Key。
 - 同一个用户或群聊固定使用一个 `session`，例如 `agent:${chat_id}`。
@@ -85,7 +90,8 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 - `云盘搜索 <片名>`：只走盘搜 + 影巢，不进入 MP/PT
 - `影巢搜索 <片名>`：明确走影巢直接列表
 - `MP搜索 <片名>` / `PT搜索 <片名>`：明确走 MoviePilot 原生 PT 搜索
-- `更新 <片名>` / `更新检查 <片名>` / `检查 <片名>`：先走更新检查，直接返回官方参考进度、盘搜最新集资源、影巢最新集资源；不要先清空会话，不要先改走影巢候选
+- `MP 搜索 <片名>` / `PT 搜索 <片名>`：同上，必须原样 route，不要因为 MCP 不可用改成盘搜
+- `更新 <片名>` / `更新检查 <片名>` / `检查 <片名>`：先走更新检查，直接返回TMDB 参考进度、盘搜最新集资源、影巢最新集资源；不要先清空会话，不要先改走影巢候选
 - `清空夸克默认转存目录` / `清空夸克默认目录`：这是显式破坏性写操作，只在用户原话明确提出时直传，不要改写成 115 清理，也不要先做搜索或更新检查。它会清掉夸克默认目录当前层的文件和文件夹；删除文件夹时会连同文件夹内内容一起清掉。
 - `清空115转存目录` / `清空115默认转存目录` / `清空115默认目录`：这是显式破坏性写操作，只在用户原话明确提出时直传，不要改写成夸克清理，也不要先做搜索或更新检查
 
@@ -154,6 +160,13 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 - MP 内置智能体：优先用 Agent Tool / `request_templates`，不要让模型自己拼底层资源 API。
 - 飞书入口：把消息送进插件内置 Channel，底层仍然走 `route / pick / followup`。
 
+如果当前外部智能体已经提前接入 MoviePilot 官方 MCP，就把它当成 MoviePilot 原生能力的默认入口：
+
+- MP 原生查询、下载任务、站点、历史、工作流、调度器、插件列表、媒体详情等优先直接走 MCP
+- 不要为了“验证一下”先绕旧 API；直接调用对应 `mcp__moviepilot__*` 工具
+- 资源工作流仍优先走 `agent-resource-officer`
+- 未确认 MCP 已真实接通前，不要在回答里宣称“正在使用 MCP”
+
 如果想用最低 token 方式接入，直接读取 `assistant/request_templates` 返回里的：
 
 - `orchestration_contract`
@@ -201,6 +214,22 @@ cd MoviePilot-Plugins
 bash skills/agent-resource-officer/install.sh --dry-run
 bash skills/agent-resource-officer/install.sh
 ```
+
+仓库已经包含本机浏览器 Cookie 导出工具，不需要另外下载用户本机的旧双击工具：
+
+```text
+tools/hdhive-cookie-export
+tools/quark-cookie-export
+```
+
+执行 `install.sh` 后，这两个工具会一起复制到 skill 目录的 `tools/` 下。helper 会优先查找：
+
+```text
+skills/agent-resource-officer/tools/hdhive-cookie-export
+skills/agent-resource-officer/tools/quark-cookie-export
+```
+
+所以安装后可以直接用智能体命令调用 `刷新影巢Cookie`、`修复影巢签到`、`刷新夸克Cookie`、`修复夸克转存`。只有部署者明确指定自定义路径时，才需要配置 `ARO_HDHIVE_COOKIE_EXPORT_DIR` 或 `ARO_QUARK_COOKIE_EXPORT_DIR`。
 
 创建连接配置：
 
@@ -394,6 +423,17 @@ POST /api/v1/plugin/AgentResourceOfficer/assistant/pick?apikey={MP_API_TOKEN}
 3. 如果返回资源列表，保留每条资源的网盘、解锁分、大小、清晰度、来源、集数/更新信息、字幕和详情摘要，提示用户回复“选择 编号”。
 4. 如果返回转存结果，只总结成功/失败和目录。
 5. 如果返回需要扫码登录，展示二维码或提示用户完成扫码，再调用“检查115登录”。
+6. 盘搜列表已经按 115 / 夸克分组，条目内不要额外补 `[115]` 或 `[quark]`；日期保留时钟标记，例如 `— 🕒05/07` 或插件返回的 `display_datetime`；如前端会折叠 Markdown 换行，把资源列表放进 `text` 代码块，或至少在分组标题后保留空行，避免夸克结果挤成一段。
+7. 影巢资源列表也按 `🟦 115 结果 / 🟨 夸克结果` 分组，每条用纯数字编号 `1. 📺/🗄 标题 · 积分 · 大小 · 集数 · 规格`，不要写 `#1`；在 WorkBuddy 这类 Markdown 前端，每条之间保留一个空行，不要压成一个长段落。需要可复制链接或完整信息时，引导用户发 `选择 编号 详情`。
+8. 搜索结果列表不要展示 115/夸克原始分享链接；链接只在 `选择 编号 详情` 的复制友好详情卡片里展示。
+9. 盘搜、云盘、影巢、MP/PT 和更新检查结果都可以追加“智能建议”，用于推荐最优编号和解释取舍；建议不限制长短，但必须引用原编号，不要替代列表、不要重新编号。建议应围绕画质、集数完整度、字幕、体积、来源可靠性、115/夸克明确偏好来写，不要把评分公式或加分项原样展示成理由。
+10. 用户说 `15详情`、`15 的详情`、`我要看看 15 的详情`、`看十六详情`、`详情十六` 这类话时，是查看当前编号结果详情，不是执行转存或下载。优先原样透传；如果必须改写，只能改成 `选择 15 详情` 这一类保留 `详情` 的命令，绝对不要改成 `选择 15` 或单独数字。
+11. 用户说 `下载 蜘蛛侠`、`转存 蜘蛛侠`、`夸克转存 蜘蛛侠`、`115转存 蜘蛛侠` 这类写入命令时，保留原话交给 `route`。插件会先做 MP/TMDB 影片确认；其中 `转存` 默认等同 `115转存`，只有明确说 `夸克转存` 才走夸克。只有一个影片命中时才继续原写入流程；多个候选时先让用户选影片，选完后再用正确片名和年份继续 PT / 盘搜 / 影巢搜索。不要改写成 `智能执行 蜘蛛侠`，也不要跳过影片确认。
+
+Helper 输出规则：
+1. `route` / `pick` 默认输出纯文本 `message`，适合直接转发给用户。
+2. 需要程序化读取 `decision_summary`、`preferred_command` 等字段时，再显式加 `--json-output`。
+3. 不要把纯文本结果重新解析成自己的列表，否则容易丢掉 emoji、编号、链接和换行。
 
 错误处理：
 1. 如果接口失败，先调用 selfcheck 或 startup。

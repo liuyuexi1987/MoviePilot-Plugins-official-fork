@@ -46,9 +46,12 @@ AI识别增强
 搜索 <片名>
 云盘搜索 <片名>
 转存 <片名>
+夸克转存 <片名>
 下载 <片名>
 更新检查 <片名>
 ```
+
+其中 `转存 <片名>` 默认等同 `115转存 <片名>`；只有明确发送 `夸克转存 <片名>` 才会走夸克。
 
 如果只走这条路，到这里就够了。
 如果需要识别兜底，再开启 **AI识别增强**。
@@ -63,6 +66,19 @@ AI识别增强
 
 也就是：**插件已经装好以后，再把它接给外部智能体。**
 
+外部智能体现在有两种接法：
+
+- **官方 MCP 直连**
+  - 适合：支持远程 HTTP MCP 的客户端
+  - 入口：`http://你的MP地址:3000/api/v1/mcp`
+  - 认证：`X-API-KEY: 你的 MoviePilot API_TOKEN`
+  - 特点：可以直接拿到 `MoviePilot` 原生工具，以及插件暴露出来的 `agent_resource_officer_*` 工具
+- **agent-resource-officer skill / helper**
+  - 适合：需要固定命令、资源流约束、会话续接、编号选择、Cookie 修复链
+  - 特点：更贴近当前这套“搜索 -> 选择 -> 转存/下载 -> 更新/修复”的工作流
+
+如果你的客户端已经支持 MCP，建议**先接官方 MCP**；如果你要稳定跑资源流，继续优先用 `skill / helper`。
+
 #### 4.1 同一台机器：MoviePilot 和智能体都在当前电脑
 
 适合：
@@ -70,19 +86,53 @@ AI识别增强
 - MoviePilot 在你现在这台 Mac / Win 电脑
 - OpenClaw / Hermes / WorkBuddy 也在这台电脑
 
+如果你的客户端支持官方 MCP，最短接法是：
+
+```text
+MCP 地址：http://127.0.0.1:3000/api/v1/mcp
+认证头：X-API-KEY=你的 MoviePilot API_TOKEN
+```
+
+然后直接让智能体读取 `MoviePilot` 的 MCP 工具即可。
+
 推荐直接把下面这段发给外部智能体：
 
 ```text
 请从这个仓库安装并使用 agent-resource-officer skill：
 https://github.com/liuyuexi1987/MoviePilot-Plugins
 
+如果当前电脑还没有这个仓库，请先执行：
+git clone https://github.com/liuyuexi1987/MoviePilot-Plugins.git
+cd MoviePilot-Plugins
+bash skills/agent-resource-officer/install.sh --dry-run
+bash skills/agent-resource-officer/install.sh
+
 按下面配置完成接入：
 ARO_BASE_URL=http://127.0.0.1:3000
 ARO_API_KEY=你的 MoviePilot API_TOKEN
 
+Cookie 修复工具已经随仓库分发，不需要另外找工具：
+tools/hdhive-cookie-export
+tools/quark-cookie-export
+
+执行 install.sh 后，这两个工具会一起安装到 skill 目录下。后续可以直接用智能体命令调用：
+刷新影巢Cookie
+修复影巢签到
+刷新夸克Cookie
+修复夸克转存
+
+默认不需要配置 ARO_HDHIVE_COOKIE_EXPORT_DIR 或 ARO_QUARK_COOKIE_EXPORT_DIR；只有我明确指定自定义路径时才配置。
+
 安装后请优先读取：
 1. skills/agent-resource-officer/SKILL.md
 2. docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md
+
+接入后必须遵守：
+1. 资源流命令直接走 agent-resource-officer 的 route/pick，不要先走 MCP、tool_search、curl 或 raw API。资源流包括：云盘搜索、盘搜、影巢、MP搜索、PT搜索、转存、夸克转存、115转存、下载、更新、更新检查、检查、选择、详情、n、下一页和编号续选。
+2. route/pick 默认输出就是适合聊天展示的纯文本 message，请优先原样转发，不要重新改写资源列表；只有需要程序化读取字段时才加 --json-output。
+3. 如果原始输出里有“智能建议”，必须保留；如果没有，也可以在原始列表后追加智能建议。智能建议不限制长短，但必须引用原始编号，不能替代列表、不能重新编号。
+4. `转存` 默认就是 `115转存`；只有用户明确说 `夸克转存` 时才走夸克。
+5. 长时间使用同一个微信/WorkBuddy/Claw 线程后，如果出现把“详情”误当成“转存”、编号续接混乱、一直套用旧格式等情况，先清理当前 ARO 会话和智能体线程记忆，再重新读取 skill。不要在普通“更新检查/搜索”前主动清会话。
 
 然后按其中的固定命令和接入规则执行。
 ```
@@ -109,21 +159,55 @@ ARO_API_KEY=你的 MoviePilot API_TOKEN
 - MoviePilot 跑在 NAS / Docker
 - OpenClaw / Hermes / WorkBuddy 跑在你的 Mac / Win
 
+如果你的客户端支持官方 MCP，最短接法是：
+
+```text
+MCP 地址：http://你的NAS地址:3000/api/v1/mcp
+认证头：X-API-KEY=你的 MoviePilot API_TOKEN
+```
+
+然后直接让智能体读取 `MoviePilot` 的 MCP 工具即可。
+
 推荐直接把下面这段发给外部智能体：
 
 ```text
 请从这个仓库安装并使用 agent-resource-officer skill：
 https://github.com/liuyuexi1987/MoviePilot-Plugins
 
+如果当前电脑还没有这个仓库，请先执行：
+git clone https://github.com/liuyuexi1987/MoviePilot-Plugins.git
+cd MoviePilot-Plugins
+bash skills/agent-resource-officer/install.sh --dry-run
+bash skills/agent-resource-officer/install.sh
+
 MoviePilot 在 NAS，智能体在当前电脑。
 请按下面配置完成接入：
 ARO_BASE_URL=http://你的NAS地址:3000
 ARO_API_KEY=你的 MoviePilot API_TOKEN
 
+Cookie 修复工具已经随仓库分发，不需要另外找工具：
+tools/hdhive-cookie-export
+tools/quark-cookie-export
+
+执行 install.sh 后，这两个工具会一起安装到 skill 目录下。后续可以直接用智能体命令调用：
+刷新影巢Cookie
+修复影巢签到
+刷新夸克Cookie
+修复夸克转存
+
+默认不需要配置 ARO_HDHIVE_COOKIE_EXPORT_DIR 或 ARO_QUARK_COOKIE_EXPORT_DIR；只有我明确指定自定义路径时才配置。
+
 安装后请优先读取：
 1. skills/agent-resource-officer/SKILL.md
 2. docs/AGENT_RESOURCE_OFFICER_REMOTE_DEPLOY.md
 3. docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md
+
+接入后必须遵守：
+1. 资源流命令直接走 agent-resource-officer 的 route/pick，不要先走 MCP、tool_search、curl 或 raw API。资源流包括：云盘搜索、盘搜、影巢、MP搜索、PT搜索、转存、夸克转存、115转存、下载、更新、更新检查、检查、选择、详情、n、下一页和编号续选。
+2. route/pick 默认输出就是适合聊天展示的纯文本 message，请优先原样转发，不要重新改写资源列表；只有需要程序化读取字段时才加 --json-output。
+3. 如果原始输出里有“智能建议”，必须保留；如果没有，也可以在原始列表后追加智能建议。智能建议不限制长短，但必须引用原始编号，不能替代列表、不能重新编号。
+4. `转存` 默认就是 `115转存`；只有用户明确说 `夸克转存` 时才走夸克。
+5. 长时间使用同一个微信/WorkBuddy/Claw 线程后，如果出现把“详情”误当成“转存”、编号续接混乱、一直套用旧格式等情况，先清理当前 ARO 会话和智能体线程记忆，再重新读取 skill。不要在普通“更新检查/搜索”前主动清会话。
 
 然后按其中的固定命令和接入规则执行。
 ```
@@ -148,6 +232,32 @@ ARO_API_KEY=你的 MoviePilot API_TOKEN
 
    先在 **当前 Win / Mac 浏览器** 登录对应网站，因为 Cookie 是从你这台电脑浏览器导出的，再写回 NAS 上的 MoviePilot。
 
+#### 4.3 长线程用久了怎么维护
+
+外部智能体接微信、飞书、WorkBuddy 或 Claw 这类长线程时，用久了可能会因为上下文压缩、旧测试记录、旧 memory 影响判断，表现为：
+
+- 明明说 `16详情`，却被改写成 `选择 16`
+- 编号续接到了很久以前的搜索结果
+- 反复套用旧的展示格式或旧提示词
+
+这时不要急着改插件，先清理当前会话上下文：
+
+```bash
+python3 skills/agent-resource-officer/scripts/aro_request.py session-clear --session default
+python3 skills/agent-resource-officer/scripts/aro_request.py plans-clear --session default
+```
+
+如果你的外部智能体使用固定群聊/用户 session，例如 `agent:wechat-room-1`，把上面的 `default` 换成实际 session。
+
+同时让智能体重新读取：
+
+```text
+skills/agent-resource-officer/SKILL.md
+docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md
+```
+
+注意：不要在普通 `搜索 / 更新检查 / 检查` 前自动清会话，否则会破坏正常的编号续接。只有长线程明显跑偏、测试很久、或你明确要求“清空会话/重置上下文”时才清。
+
 ---
 
 ## 两个主线插件
@@ -159,7 +269,7 @@ ARO_API_KEY=你的 MoviePilot API_TOKEN
 | 能力 | 包含 |
 |------|------|
 | 云盘资源 | 搜索（盘搜 / 影巢 / 云盘）· 转存（115 / 夸克）· 更新检查 · 目录命名建议 |
-| 原生 MP/PT | MP搜索 · PT搜索 · 下载 · 订阅 · 任务 / 历史 / 站点查询 · 热门推荐 |
+| 原生 MP/PT | MP搜索 · PT搜索 · 歧义片名先选 MP/TMDB 候选 · 下载 · 订阅 · 任务 / 历史 / 站点查询 · 热门推荐 |
 | 115 / 夸克 / 影巢 | 登录检查 · 状态查询 · Cookie刷新 · 签到 · 转存目录清理 |
 | 外部入口 | 飞书长连接 · OpenClaw / Hermes / WorkBuddy 兼容 · 会话续接 · 编号选择 |
 

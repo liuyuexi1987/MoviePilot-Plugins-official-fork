@@ -40,7 +40,7 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
   - `云盘搜索 <片名>`
   - `MP搜索 <片名>` / `PT搜索 <片名>`
 - 执行：
-  - `转存 <片名>`
+  - `转存 <片名>`：默认等同 `115转存 <片名>`
   - `夸克转存 <片名>`
   - `115转存 <片名>`
   - `下载 <片名>`
@@ -76,6 +76,10 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
   - `41031`、分享封禁、分享受限都不属于 Cookie 失效。
 - 影巢签到恢复不要教用户手工找 Cookie。
   - 当前标准恢复方式是本机导出工具自动写回。
+- 长线程跑久后，智能体可能被旧上下文压缩污染。
+  - 表现：`15详情` 被改写成 `选择 15`、编号续接到旧结果、一直套用旧展示格式。
+  - 处理：先清当前 ARO session 和计划，再让智能体重新读取 Skill。
+  - 不要在普通 `搜索 / 更新检查 / 检查` 前主动清会话，否则会破坏正常编号续接。
 
 ## 接入原则
 
@@ -105,6 +109,46 @@ https://github.com/liuyuexi1987/MoviePilot-Plugins
 3. 用户发自然语言后，调 `route --summary-only`
 4. 读取 `recommended_agent_behavior`
 5. 如果执行过计划，再调 `followup --summary-only`
+
+## 长线程维护
+
+如果外部智能体接的是微信、飞书、WorkBuddy、Claw 这类长时间不断开的线程，建议把“会话清理”当作维护动作，而不是日常前置步骤。
+
+适合清理的情况：
+
+- 长时间测试后，智能体开始误解固定命令
+- `编号 + 详情` 被当成直接执行
+- 当前编号明显续接到了很久以前的搜索结果
+- 智能体反复沿用旧提示词、旧展示格式或旧推荐规则
+
+清理 ARO 当前会话：
+
+```bash
+python3 scripts/aro_request.py session-clear --session default
+python3 scripts/aro_request.py plans-clear --session default
+```
+
+如果接入层给每个用户或群聊分配了固定 session，例如 `agent:wechat-room-1`，就把 `default` 换成实际 session：
+
+```bash
+python3 scripts/aro_request.py session-clear --session agent:wechat-room-1
+python3 scripts/aro_request.py plans-clear --session agent:wechat-room-1
+```
+
+清理后建议让外部智能体重新读取：
+
+```text
+skills/agent-resource-officer/SKILL.md
+docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md
+```
+
+如果客户端本身还有 memory / thread memory / project memory，也可以只清和资源工作流相关的旧记忆。不要删除 API Key、Cookie、helper 配置和 skill 文件。
+
+可以发给外部智能体的短提示：
+
+```text
+忽略本线程之前的资源搜索上下文，重新读取 agent-resource-officer skill 和当前 memory；后续资源命令按最新规则执行。编号详情请求必须保留详情意图，例如“15详情”只能按“选择 15 详情”处理，不能改成“选择 15”。
+```
 
 如果场景是“只给片名，让智能体自己比较多个来源”，优先使用统一搜索决策入口：
 
@@ -271,6 +315,22 @@ bash skills/agent-resource-officer/install.sh --dry-run
 bash skills/agent-resource-officer/install.sh
 ```
 
+仓库已经包含本机浏览器 Cookie 导出工具，不需要另外下载用户本机的旧双击工具：
+
+```text
+tools/hdhive-cookie-export
+tools/quark-cookie-export
+```
+
+执行 `install.sh` 后，这两个工具会一起复制到 skill 目录的 `tools/` 下。helper 会优先查找：
+
+```text
+skills/agent-resource-officer/tools/hdhive-cookie-export
+skills/agent-resource-officer/tools/quark-cookie-export
+```
+
+所以安装后可以直接用智能体命令调用 `刷新影巢Cookie`、`修复影巢签到`、`刷新夸克Cookie`、`修复夸克转存`。只有部署者明确指定自定义路径时，才需要配置 `ARO_HDHIVE_COOKIE_EXPORT_DIR` 或 `ARO_QUARK_COOKIE_EXPORT_DIR`。
+
 然后创建连接配置：
 
 ```bash
@@ -321,6 +381,9 @@ python3 <SKILL_HOME>/agent-resource-officer/scripts/aro_request.py external-agen
 8. 搜索结果只展示 Agent影视助手返回的内容，编号选择继续调用 pick。
 9. 写入类动作必须等用户明确选择编号或给出链接后再执行；下载、订阅、影巢解锁和网盘转存优先生成 plan_id。
 10. 创建后请运行 external-agent 或等价自检，确认 schema_version=external_agent.v1。
+11. 资源流命令直接走 agent-resource-officer 的 route/pick，不要先走 MCP、tool_search、curl 或 raw API。资源流包括：云盘搜索、盘搜、影巢、MP搜索、PT搜索、转存、夸克转存、115转存、下载、更新、更新检查、检查、选择、详情、n、下一页和编号续选。
+12. route/pick 默认输出就是适合聊天展示的纯文本 message，优先原样转发，不要重新改写资源列表；只有需要程序化读取字段时才加 --json-output。
+13. 如果原始输出里有“智能建议”，必须保留；如果没有，也可以在原始列表后追加智能建议。智能建议不限制长短，但必须引用原始编号，不能替代列表、不能重新编号。
 ```
 
 创建完成后，用这两句检查它是否真正理解：
@@ -459,10 +522,11 @@ POST /api/v1/plugin/AgentResourceOfficer/assistant/pick?apikey={MP_API_TOKEN}
 
 展示规则：
 1. 只展示 AgentResourceOfficer 返回的 message，不自己编造资源。
-2. 如果返回候选影片，先让用户选影片编号。
+2. 如果返回候选影片或 MP/TMDB 候选，先让用户选影片编号，不要替用户默认选第一项。
 3. 如果返回资源列表，保留每条资源的网盘、解锁分、大小、清晰度、来源、集数/更新信息、字幕和详情摘要，提示用户回复“选择 编号”。
 4. 如果返回转存结果，只总结成功/失败和目录。
 5. 如果返回需要扫码登录，展示二维码或提示用户完成扫码，再调用“检查115登录”。
+6. 如果返回更新检查结果，保留 `🟨 盘搜结果`、`🟦 影巢结果`、`🗄 #编号`、`📺 #编号`、`🕒日期`、`📌 集数` 这些原始行，不要改写成 `#: 来源 / 详情 / 日期` 字段表。
 
 错误处理：
 1. 如果接口失败，先调用 selfcheck 或 startup。

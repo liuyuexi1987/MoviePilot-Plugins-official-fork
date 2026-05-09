@@ -218,6 +218,40 @@ C:\\Users\\...
 
 - `/待整理`
 - `/飞书`
+
+### 5. 长线程上下文被旧测试污染
+
+如果 WorkBuddy、OpenClaw、Hermes 或微信侧智能体长期使用同一个线程，模型上下文被压缩后可能会混入旧测试习惯。
+
+常见表现：
+
+- 用户说 `15详情`，智能体却执行了 `选择 15`
+- `n / 下一页 / 编号` 续接到了旧片名或旧搜索结果
+- 搜索结果展示突然回到旧格式
+- 已经更新了 skill，但当前线程仍按旧规则行动
+
+这类问题通常不是 NAS、API、Cookie 或插件执行层坏了，优先按下面顺序处理：
+
+1. 清当前 ARO session。
+2. 清当前 session 的旧计划。
+3. 让外部智能体重新读取 skill。
+4. 如果客户端有 memory / thread memory，只清资源流相关旧记忆，不要删配置。
+
+命令示例：
+
+```bash
+python3 scripts/aro_request.py session-clear --session default
+python3 scripts/aro_request.py plans-clear --session default
+```
+
+如果使用固定用户或群聊 session，把 `default` 换成实际值，例如：
+
+```bash
+python3 scripts/aro_request.py session-clear --session agent:wechat-room-1
+python3 scripts/aro_request.py plans-clear --session agent:wechat-room-1
+```
+
+注意：不要把这一步做成普通搜索前的固定动作。正常编号续接依赖会话存在，只有线程明显跑偏、测试很久、或用户明确要求“清空会话/重置上下文”时才清。
 - `/最新动画`
 
 这类逻辑目录名，而不是你本地磁盘绝对路径。

@@ -15,7 +15,7 @@ SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))
 EXTERNAL_AGENT_GUIDE_PATH = os.path.join(SKILL_DIR, "EXTERNAL_AGENTS.md")
 WORKBUDDY_GUIDE_PATH = EXTERNAL_AGENT_GUIDE_PATH
-HELPER_VERSION = "0.1.42"
+HELPER_VERSION = "0.1.43"
 HELPER_COMMANDS = [
     "auto",
     "commands",
@@ -64,10 +64,12 @@ WRITE_WORKFLOWS = {
     "mp_subscribe_and_search",
 }
 HDHIVE_COOKIE_TOOL_DIR_CANDIDATES = [
+    os.path.join(SKILL_DIR, "tools", "hdhive-cookie-export"),
     os.path.join(REPO_ROOT, "tools", "hdhive-cookie-export"),
     os.path.expanduser("~/Services/工具项目/影巢Cookie导出 YingChaoCookieExport"),
 ]
 QUARK_COOKIE_TOOL_DIR_CANDIDATES = [
+    os.path.join(SKILL_DIR, "tools", "quark-cookie-export"),
     os.path.join(REPO_ROOT, "tools", "quark-cookie-export"),
     os.path.expanduser("~/Services/工具项目/夸克Cookie导出 QuarkCookieExport"),
 ]
@@ -474,13 +476,17 @@ def external_agent_payload():
     prompt = (
         "你是外部智能体，通过 AgentResourceOfficer 控制 MoviePilot 资源工作流。"
         "不要直接调用影巢、115、夸克或盘搜原始 API。"
+        "MCP 只用于插件列表、下载器状态、站点状态、历史记录这类管理查询；片名资源搜索不要先走 MCP。"
         "每个新会话先调用 startup 或 readiness；普通用户指令走 route；"
         "如果 preferences 未初始化，先询问并保存片源偏好；"
-        "搜索某个具体片名时，优先用智能搜索统一决策，不要自己轮询盘搜、影巢和 MP/PT。"
-        "如果需要一步得到更明确的下一步建议，优先用资源决策。"
+        "用户明确说 MP搜索、MP 搜索、PT搜索 或 PT 搜索时，第一步只能原样 route，不要先 search_media、search_torrents、TMDB、raw API 或 MCP，不要改写成盘搜、云盘或智能搜索。"
+        "用户明确说智能搜索、资源决策或智能决策时，才使用跨来源智能决策。"
+        "普通搜索和明确来源命令都先原样 route；不要自己轮询盘搜、影巢和 MP/PT。"
         "云盘和 PT 使用不同评分规则：云盘看质量/完整度/字幕/影巢积分，PT 看做种/促销/质量/字幕。"
         "编号选择走 pick；写入动作遵守 dry_run、plan_id、execute 的确认流程。"
         "route/pick/workflow/plan-execute/followup 返回 compact JSON 时，优先读取顶层 command_source、preferred_command、fallback_command、compact_commands 作为下一步。"
+        "展示盘搜/云盘资源列表时，先保留原始分组、编号和真实换行；日期保留时钟标记如 🕒05/07；Markdown 前端可用 text 代码块防止夸克列表挤成一段。"
+        "列表后可以追加“智能建议”，可自然分析取舍且不限制长短；引用原编号推荐最优项，但不能用建议替代原始列表；不要把评分公式或加分项原样展示成理由。"
         "输出时只展示用户需要选择或执行的信息，不回显 API Key、Cookie、Token。"
     )
     return {
@@ -504,6 +510,7 @@ def external_agent_payload():
         "startup_command": "python3 scripts/aro_request.py startup",
         "route_command": "python3 scripts/aro_request.py route '<用户原始指令>' --session 'agent:<会话ID>'",
         "pick_command": "python3 scripts/aro_request.py pick <编号> --session 'agent:<会话ID>'",
+        "json_output_rule": "route/pick 默认输出适合聊天转发的纯文本 message；需要程序化解析时显式加 --json-output。",
         "followup_command": "python3 scripts/aro_request.py followup --session 'agent:<会话ID>'",
         "next_command_rule": "优先读取 compact 主响应顶层的 preferred_command、fallback_command、compact_commands；只有这些字段为空时，再回退到 error_summary / followup_summary / score_summary.decision。",
         "auto_continue_rule": "如果 summary-only 输出里 recommended_agent_behavior=auto_continue 或 auto_continue_then_wait_confirmation，则可以直接执行 auto_run_command；如果是 wait_user_confirmation，则先向用户展示 confirm_command；如果是 stop，则不要继续自动执行。",
@@ -653,12 +660,14 @@ def external_agent_payload():
                 "name": "route_text",
                 "purpose": "处理自然语言资源指令、链接转存、搜索和登录状态查询。",
                 "command": "python3 scripts/aro_request.py route '<用户原始指令>' --session 'agent:<会话ID>'",
+                "json_command": "python3 scripts/aro_request.py route '<用户原始指令>' --session 'agent:<会话ID>' --json-output",
                 "writes": "depends_on_route",
             },
             {
                 "name": "pick_continue",
                 "purpose": "继续编号选择、详情、审查、下一页等会话动作。",
                 "command": "python3 scripts/aro_request.py pick <编号> --session 'agent:<会话ID>'",
+                "json_command": "python3 scripts/aro_request.py pick <编号> --session 'agent:<会话ID>' --json-output",
                 "writes": "depends_on_choice",
             },
             {
@@ -1770,6 +1779,11 @@ def main():
         action="store_true",
         help="Compatibility no-op; compact output is the default unless --full is used.",
     )
+    parser.add_argument(
+        "--json-output",
+        action="store_true",
+        help="For route/pick, print compact JSON instead of the chat-friendly plain message.",
+    )
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--summary-only", action="store_true")
     parser.add_argument("--command-only", action="store_true")
@@ -2370,6 +2384,11 @@ def main():
         print_summary(summary, command_only=args.command_only, confirmed=args.confirmed)
         return 0
     output = result if args.full else compact(result)
+    if args.command in {"route", "pick"} and not args.full and not args.json_output:
+        message = str((output or {}).get("message") or "").strip() if isinstance(output, dict) else ""
+        if message:
+            print(message)
+            return 0 if (output or {}).get("success", True) else 2
     print_json(output)
     return 0
 
