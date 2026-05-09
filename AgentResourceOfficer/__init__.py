@@ -9173,7 +9173,7 @@ class AgentResourceOfficer(_PluginBase):
                 _safe_clear_cache()
                 folder = _resolve_folder()
             if folder is None:
-                return True, {
+                return False, {
                     "target_path": path,
                     "removed_count": 0,
                     "file_count": 0,
@@ -9181,7 +9181,8 @@ class AgentResourceOfficer(_PluginBase):
                     "items": [],
                     "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
                     "bridge": "quarkdisk",
-                }, "默认目录当前层为空"
+                    "fallback_to_direct": True,
+                }, "QuarkDisk 未定位到目录，改走直连夸克接口确认"
 
             items = []
             if hasattr(plugin, "list_files"):
@@ -9193,7 +9194,7 @@ class AgentResourceOfficer(_PluginBase):
             files = [item for item in items if getattr(item, "type", "") != "dir"]
             folders = [item for item in items if getattr(item, "type", "") == "dir"]
             if not items:
-                return True, {
+                return False, {
                     "target_path": path,
                     "removed_count": 0,
                     "file_count": 0,
@@ -9201,7 +9202,8 @@ class AgentResourceOfficer(_PluginBase):
                     "items": [],
                     "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
                     "bridge": "quarkdisk",
-                }, "默认目录当前层为空"
+                    "fallback_to_direct": True,
+                }, "QuarkDisk 返回空列表，改走直连夸克接口确认"
 
             removed_count = 0
             failed_items: List[str] = []
@@ -21646,16 +21648,31 @@ class AgentResourceOfficer(_PluginBase):
                 clear_ok, clear_result, clear_message = quark_service.clear_directory(self._quark_default_path)
             else:
                 clear_ok, clear_result, clear_message = bridge_result
+                if not clear_ok and isinstance(clear_result, dict) and clear_result.get("fallback_to_direct"):
+                    quark_service = self._ensure_quark_service()
+                    clear_ok, clear_result, clear_message = quark_service.clear_directory(self._quark_default_path)
             target_path = self._clean_text((clear_result or {}).get("target_path")) or self._quark_default_path
             if not clear_ok:
                 file_count = self._safe_int((clear_result or {}).get("file_count"), 0)
                 folder_count = self._safe_int((clear_result or {}).get("folder_count"), 0)
+                removed_count = self._safe_int((clear_result or {}).get("removed_count"), 0)
+                failed_items = (clear_result or {}).get("failed_items") or []
                 lines = [
                     f"清空夸克默认目录失败：{clear_message or '未知错误'}",
                     f"目录：{target_path}",
                 ]
+                if removed_count:
+                    lines.append(f"已删除：{removed_count} 项")
                 if file_count or folder_count:
                     lines.append(f"当前层项目：文件 {file_count} / 文件夹 {folder_count}")
+                if isinstance(failed_items, list) and failed_items:
+                    names = [
+                        self._clean_text(item.get("name") if isinstance(item, dict) else item)
+                        for item in failed_items[:5]
+                    ]
+                    names = [name for name in names if name]
+                    if names:
+                        lines.append("失败项：" + "、".join(names))
                 return finish({
                     "success": False,
                     "message": "\n".join(lines),
