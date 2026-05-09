@@ -3024,7 +3024,7 @@ class AgentResourceOfficer(_PluginBase):
                                         "props": {
                                             "type": "info",
                                             "variant": "tonal",
-                                            "text": "飞书入口默认关闭。开启后可以在飞书里发送搜索、选择、链接转存、115 登录和 STRM 调度命令；同一个飞书机器人建议只配置一个接收入口。",
+                                            "text": "飞书入口默认关闭。开启后可以在飞书里发送搜索、云盘搜索、转存、夸克转存、下载、更新检查、115 登录和影巢签到等命令；同一个飞书机器人建议只配置一个接收入口。",
                                         },
                                     }
                                 ],
@@ -3169,7 +3169,7 @@ class AgentResourceOfficer(_PluginBase):
                                             "model": "feishu_command_whitelist",
                                             "label": "飞书命令白名单",
                                             "rows": 3,
-                                            "placeholder": "逗号或换行分隔；留空时会自动合并默认命令",
+                                            "placeholder": "逗号或换行分隔；留空时会自动合并当前主线命令。旧 STRM/刮削命令不再默认暴露，如需兼容旧环境可手动加入。",
                                         },
                                     }
                                 ],
@@ -3185,6 +3185,7 @@ class AgentResourceOfficer(_PluginBase):
                                             "label": "飞书命令别名",
                                             "rows": 5,
                                             "placeholder": FeishuChannel.default_command_aliases(),
+                                            "hint": "默认别名已统一走 Agent影视助手 route/pick：转存默认 115，夸克转存需显式发送；旧 STRM/刮削别名如需保留请手动添加。",
                                         },
                                     }
                                 ],

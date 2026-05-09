@@ -232,6 +232,36 @@ class _FeishuLongConnectionRuntime:
 
 
 class FeishuChannel:
+    _LEGACY_DEFAULT_COMMANDS = {
+        "/p115_manual_transfer",
+        "/p115_inc_sync",
+        "/p115_full_sync",
+        "/p115_strm",
+        "/quark_save",
+        "/media_search",
+        "/media_download",
+        "/media_subscribe",
+        "/media_subscribe_search",
+    }
+    _LEGACY_DEFAULT_ALIAS_KEYS = {
+        "刮削",
+        "搜索",
+        "MP搜索",
+        "原生搜索",
+        "下载",
+        "订阅",
+        "订阅搜索",
+        "生成STRM",
+        "全量STRM",
+        "指定路径STRM",
+        "夸克转存",
+        "夸克",
+        "搜索资源",
+        "下载资源",
+        "订阅媒体",
+        "订阅并搜索",
+    }
+
     def __init__(self, plugin: Any) -> None:
         self.plugin = plugin
         self.runtime = _FeishuLongConnectionRuntime()
@@ -258,43 +288,37 @@ class FeishuChannel:
     @classmethod
     def default_command_whitelist(cls) -> List[str]:
         return [
-            "/p115_manual_transfer",
-            "/p115_inc_sync",
-            "/p115_full_sync",
-            "/p115_strm",
-            "/quark_save",
             "/pansou_search",
             "/smart_entry",
             "/smart_pick",
             "/media_search",
-            "/media_download",
-            "/media_subscribe",
-            "/media_subscribe_search",
             "/version",
         ]
 
     @classmethod
     def default_command_aliases(cls) -> str:
         return (
-            "刮削=/p115_manual_transfer\n"
-            "搜索=/media_search\n"
-            "MP搜索=/media_search\n"
-            "原生搜索=/media_search\n"
+            "搜索=/smart_entry\n"
+            "找=/smart_entry\n"
+            "云盘搜索=/smart_entry\n"
+            "MP搜索=/smart_entry\n"
+            "PT搜索=/smart_entry\n"
+            "原生搜索=/smart_entry\n"
             "盘搜搜索=/pansou_search\n"
             "盘搜=/pansou_search\n"
             "ps=/pansou_search\n"
             "1=/pansou_search\n"
             "影巢搜索=/smart_entry\n"
+            "影巢=/smart_entry\n"
             "yc=/smart_entry\n"
             "2=/smart_entry\n"
-            "下载=/media_download\n"
-            "订阅=/media_subscribe\n"
-            "订阅搜索=/media_subscribe_search\n"
-            "生成STRM=/p115_inc_sync\n"
-            "全量STRM=/p115_full_sync\n"
-            "指定路径STRM=/p115_strm\n"
-            "夸克转存=/quark_save\n"
-            "夸克=/quark_save\n"
+            "转存=/smart_entry\n"
+            "115转存=/smart_entry\n"
+            "夸克转存=/smart_entry\n"
+            "夸克=/smart_entry\n"
+            "下载=/smart_entry\n"
+            "订阅=/smart_entry\n"
+            "订阅搜索=/smart_entry\n"
             "链接=/smart_entry\n"
             "处理=/smart_entry\n"
             "115登录=/smart_entry\n"
@@ -318,11 +342,10 @@ class FeishuChannel:
             "审查=/smart_pick\n"
             "选=/smart_pick\n"
             "继续=/smart_pick\n"
-            "影巢=/smart_entry\n"
-            "搜索资源=/media_search\n"
-            "下载资源=/media_download\n"
-            "订阅媒体=/media_subscribe\n"
-            "订阅并搜索=/media_subscribe_search\n"
+            "搜索资源=/smart_entry\n"
+            "下载资源=/smart_entry\n"
+            "订阅媒体=/smart_entry\n"
+            "订阅并搜索=/smart_entry\n"
             "版本=/version"
         )
 
@@ -362,6 +385,8 @@ class FeishuChannel:
     def merge_command_aliases(cls, configured_text: str) -> str:
         merged = cls.parse_alias_text(cls.default_command_aliases())
         for key, value in cls.parse_alias_text(configured_text).items():
+            if key in cls._LEGACY_DEFAULT_ALIAS_KEYS and value in cls._LEGACY_DEFAULT_COMMANDS:
+                continue
             merged[key] = value
         return "\n".join(f"{key}={value}" for key, value in merged.items())
 
@@ -370,6 +395,8 @@ class FeishuChannel:
         merged: List[str] = []
         seen = set()
         for cmd in configured or []:
+            if cmd in cls._LEGACY_DEFAULT_COMMANDS:
+                continue
             if cmd and cmd not in seen:
                 merged.append(cmd)
                 seen.add(cmd)
@@ -1717,17 +1744,17 @@ class FeishuChannel:
     def _build_menu_text() -> str:
         return (
             "快捷菜单\n"
-            "1. MP搜索 片名\n"
-            "2. 影巢搜索 片名\n"
-            "3. 盘搜搜索 片名\n"
-            "4. 直接发 115 / 夸克链接\n"
-            "5. 选择 序号\n"
-            "6. 刮削\n"
-            "7. 生成STRM\n"
-            "8. 全量STRM\n"
-            "9. 订阅媒体 片名\n"
-            "10. 订阅并搜索 片名\n"
-            "11. 115登录 / 115状态 / 115任务"
+            "1. 云盘搜索 片名\n"
+            "2. 盘搜搜索 片名\n"
+            "3. 影巢搜索 片名\n"
+            "4. MP搜索 片名 / PT搜索 片名\n"
+            "5. 转存 片名（默认 115）\n"
+            "6. 夸克转存 片名\n"
+            "7. 下载 片名\n"
+            "8. 更新检查 片名\n"
+            "9. 选择 序号 / 详情 序号 / n\n"
+            "10. 115登录 / 115状态 / 115任务\n"
+            "11. 影巢签到 / 影巢签到日志"
         )
 
     @staticmethod
