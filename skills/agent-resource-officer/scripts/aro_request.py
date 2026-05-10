@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import base64
 import json
 import os
 import subprocess
@@ -878,6 +879,50 @@ def assistant_path(name):
 
 def print_json(data):
     print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def qrcode_payload(data):
+    if not isinstance(data, dict):
+        return {}
+    payload = data.get("data") if isinstance(data.get("data"), dict) else data
+    qrcode = str((payload or {}).get("qrcode") or "")
+    if qrcode.startswith("data:image/") and ";base64," in qrcode:
+        return payload
+    return {}
+
+
+def write_qrcode_image(payload):
+    qrcode = str((payload or {}).get("qrcode") or "")
+    if not qrcode.startswith("data:image/") or ";base64," not in qrcode:
+        return ""
+    header, encoded = qrcode.split(",", 1)
+    suffix = ".png"
+    if "image/jpeg" in header or "image/jpg" in header:
+        suffix = ".jpg"
+    safe_uid = "".join(ch for ch in str(payload.get("uid") or "qrcode") if ch.isalnum() or ch in {"-", "_"})[:48]
+    output_dir = "/tmp/agent-resource-officer"
+    os.makedirs(output_dir, exist_ok=True)
+    path = os.path.join(output_dir, f"p115-login-{safe_uid or 'qrcode'}{suffix}")
+    with open(path, "wb") as f:
+        f.write(base64.b64decode(encoded))
+    return path
+
+
+def print_qrcode_message(result):
+    payload = qrcode_payload(result)
+    if not payload:
+        return False
+    image_path = write_qrcode_image(payload)
+    message = str((result or {}).get("message") or "").strip()
+    if message:
+        print(message)
+    if image_path:
+        print("")
+        print(f"二维码图片：{image_path}")
+        print(f"![115扫码二维码]({image_path})")
+    print("")
+    print("扫码确认后回复：检查115登录")
+    return True
 
 
 def summary_command(summary, confirmed=False):
@@ -2534,6 +2579,8 @@ def main():
         return 0
     output = result if args.full else compact(result)
     if args.command in {"route", "pick"} and not args.full and not args.json_output:
+        if print_qrcode_message(result):
+            return 0 if (result or {}).get("success", True) else 2
         message = str((output or {}).get("message") or "").strip() if isinstance(output, dict) else ""
         if message:
             print(message)
