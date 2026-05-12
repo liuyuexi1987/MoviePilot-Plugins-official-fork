@@ -1,5 +1,9 @@
 # agent-resource-officer changelog
 
+## 0.1.49
+
+- Tightened explicit title-command safety so new `搜索/MP搜索/PT搜索/下载/转存/更新检查 <片名>` requests cannot be converted into old-session `pick 1` actions after route errors.
+
 ## 0.1.48
 
 - `校准影视技能` now ignores unrelated untracked files during the auto-pull safety check; only tracked local modifications block the pull.

@@ -15,7 +15,7 @@ SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))
 EXTERNAL_AGENT_GUIDE_PATH = os.path.join(SKILL_DIR, "EXTERNAL_AGENTS.md")
 WORKBUDDY_GUIDE_PATH = EXTERNAL_AGENT_GUIDE_PATH
-HELPER_VERSION = "0.1.48"
+HELPER_VERSION = "0.1.49"
 HELPER_COMMANDS = [
     "auto",
     "calibrate",
@@ -689,6 +689,7 @@ def external_agent_payload():
         "用户明确说 MP搜索、MP 搜索、PT搜索 或 PT 搜索时，第一步只能原样 route，不要先 search_media、search_torrents、TMDB、raw API 或 MCP，不要改写成盘搜、云盘或智能搜索。"
         "用户明确说智能搜索、资源决策或智能决策时，才使用跨来源智能决策。"
         "普通搜索和明确来源命令都先原样 route；不要自己轮询盘搜、影巢和 MP/PT。"
+        "用户明确发出新的 搜索/找/MP搜索/PT搜索/下载/转存/更新检查 加片名命令时，必须把原话 route 到当前会话；即使发现旧会话、候选列表或 route 报错，也禁止自动 pick/选择任何编号，尤其禁止用旧会话 pick 1 触发下载。"
         "云盘和 PT 使用不同评分规则：云盘看质量/完整度/字幕/影巢积分，PT 看做种/促销/质量/字幕。"
         "编号选择走 pick；写入动作遵守 dry_run、plan_id、execute 的确认流程。"
         "route/pick/workflow/plan-execute/followup 返回 compact JSON 时，优先读取顶层 command_source、preferred_command、fallback_command、compact_commands 作为下一步。"
@@ -721,6 +722,7 @@ def external_agent_payload():
         "followup_command": "python3 scripts/aro_request.py followup --session 'agent:<会话ID>'",
         "next_command_rule": "优先读取 compact 主响应顶层的 preferred_command、fallback_command、compact_commands；只有这些字段为空时，再回退到 error_summary / followup_summary / score_summary.decision。",
         "auto_continue_rule": "如果 summary-only 输出里 recommended_agent_behavior=auto_continue 或 auto_continue_then_wait_confirmation，则可以直接执行 auto_run_command；如果是 wait_user_confirmation，则先向用户展示 confirm_command；如果是 stop，则不要继续自动执行。",
+        "explicit_command_safety_rule": "用户新发的带片名入口命令必须优先 route 原话。route 失败时只能重试同一原话、换同一原话的新 session、或报告错误；不能因为存在旧会话而自动 pick/选择编号，不能自动执行下载或转存。",
         "execution_policy_contract": {
             "auto_continue": "直接执行 auto_run_command。",
             "auto_continue_then_wait_confirmation": "先执行 auto_run_command，再停止并向用户展示 confirm_command。",
@@ -852,6 +854,7 @@ def external_agent_payload():
                 "compact_commands",
             ],
             "confirmation_rule": "写入动作默认确认制；只有明确标记可自动继续的只读步骤才自动续跑。",
+            "explicit_title_command_rule": "显式新搜索/下载/转存/更新检查命令不允许被旧会话恢复逻辑改写成 pick。只有用户本轮明确回复编号、选择 N、N详情、下载N、执行计划时，才允许进入 pick 或确认链路。",
         },
         "compat_aliases": ["workbuddy"],
         "deprecated_aliases": ["workbuddy"],
@@ -1535,6 +1538,7 @@ def calibration_payload(include_repo_update=False):
         "hard_rules": [
             "每次用户说 校准影视技能 / 影视技能校准，都先找到 MoviePilot-Plugins 仓库并执行 git fetch origin --prune，然后在工作区干净时执行 git pull --ff-only origin <当前分支>；若 helper 是 standalone 安装副本，拉取后还要把仓库里的 agent-resource-officer skill 同步回当前 skill 目录；若有本地未提交改动或无法快进，只报告原因并继续校准，不要强行覆盖。",
             "资源流必须走 agent-resource-officer skill/helper，不要自己改写成 MCP、curl、TMDB 或底层网盘 API。",
+            "用户明确发出新的 搜索/找/MP搜索/PT搜索/下载/转存/更新检查 加片名命令时，只能 route 原话；即使存在旧会话、候选列表、活跃 session 或 route 报错，也不能自动 pick/选择任何编号，尤其不能 pick 1 触发下载。",
             "下载 <片名> = MoviePilot 原生 MP/PT；片名不明确先选影片，片名明确后直接生成最多 3 个最佳 PT 候选的待确认下载方案，不展示完整 PT 列表、不走云盘、不自动提交真实下载。",
             "下载候选影片列表出来后，必须保持同一个 helper session，把用户回复的候选编号原样 route 回去；不要改写成 下载 <候选标题 年份>。",
             "下载链路如果选定影片后没有 PT 资源，只能报告无 PT 可下载；不能自动补查盘搜、影巢、夸克或 115。",
@@ -2116,6 +2120,7 @@ def selftest_result():
     check("external_agent_payload_has_execution_policy_contract", bool((external_agent.get("execution_policy_contract") or {}).get("auto_continue")))
     check("external_agent_payload_has_execution_loop_contract", len(external_agent.get("execution_loop_contract") or []) >= 5)
     check("external_agent_payload_has_orchestration_contract_present", bool((external_agent.get("orchestration_contract") or {}).get("recommended_route_call")))
+    check("external_agent_payload_has_explicit_command_safety", "pick" in (external_agent.get("explicit_command_safety_rule") or ""))
     check("external_agent_payload_has_feishu_entry_pattern", bool(((external_agent.get("entry_patterns") or {}).get("feishu_channel") or {}).get("route_with")))
     check("external_agent_payload_has_orchestration_contract_route", (external_agent.get("orchestration_contract") or {}).get("recommended_route_call") == "route --summary-only")
     check("external_agent_payload_has_entry_patterns", bool(((external_agent.get("entry_patterns") or {}).get("mp_builtin_agent") or {}).get("route_with")))
@@ -2125,6 +2130,7 @@ def selftest_result():
     calibration = calibration_payload()
     check("calibration_payload_success", calibration.get("success") is True)
     check("calibration_has_repo_update_contract", any("git fetch" in str(rule) and "git pull" in str(rule) for rule in calibration.get("hard_rules") or []))
+    check("calibration_has_explicit_command_safety", any("不能自动 pick" in str(rule) and "触发下载" in str(rule) for rule in calibration.get("hard_rules") or []))
     check("calibration_mentions_download_rule", any("下载 <片名>" in str(rule) and "MP/PT" in str(rule) for rule in calibration.get("hard_rules") or []))
     check("calibration_text_alias", is_calibration_text("校准影视技能"))
 

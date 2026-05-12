@@ -132,6 +132,10 @@
 ```
 
 ```text
+使用 agent-resource-officer skill，用户明确发出新的带片名入口命令，例如“搜索低智商犯罪”“搜索 低智商犯罪”“MP搜索 片名”“PT搜索 片名”“下载 片名”“转存 片名”“更新检查 片名”时，必须先 route 原话。即使 route 返回 500、提示有活跃会话或发现旧候选列表，也不能自动 `pick 1` / `选择 1` / 提交下载或转存。只能重试同一原话、用同一原话换新 session，或把错误报告给用户。只有用户本轮明确说“选择 14 / 14详情 / 下载10 / 执行计划 / 刚才那个 / 上次的 / 原来的”这类旧会话续接意图，才允许恢复旧会话并 pick。
+```
+
+```text
 使用 agent-resource-officer skill，如果“影巢签到”或“影巢签到日志”明确提示网页登录态失效、Cookie 失效、require login 或自动登录拿不到有效 Cookie，先提醒我确认已在 Edge 登录 https://hdhive.com，然后自动执行 hdhive-checkin-repair，再把新的签到结果发给我。不要先让我手工复制 Cookie。
 ```
 

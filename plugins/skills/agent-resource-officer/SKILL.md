@@ -214,6 +214,8 @@ python3 scripts/aro_request.py calibrate
 
 When a user says plain `搜索 <片名>` or `找 <片名>`, pass that text through to `route` first. Do not guess that the user meant HDHive, and do not continue an old result session by sending `选择 1` unless the user actually chose an item in the current round. Default plain search should start from MoviePilot native/PT search; only if MP/PT is disabled should the plugin fall back to other enabled search sources.
 
+For any explicit new title command such as `搜索低智商犯罪`, `搜索 低智商犯罪`, `MP搜索 <片名>`, `PT搜索 <片名>`, `下载 <片名>`, `转存 <片名>`, or `更新检查 <片名>`, route the original text as the user's current intent. If the route call fails, only retry the same original text, switch to a new session with the same original text, or report the error. Do not inspect old sessions and then automatically `pick 1`, `选择 1`, or submit any download/transfer. Old-session recovery is allowed only for explicit follow-ups like `选择 14`, `14详情`, `下载10`, `执行计划`, or wording that clearly says "刚才/上次/原来的".
+
 When the user clearly refers to a previously shown numbered result, for example `刚才那个 22`、`上次的 #22`、`把原来的 22 转存`、`下载 10`、`选择 14`, do not restart search first. Reuse the current session, or recover the latest matching session with `decide --summary-only` / `sessions` / `session`, then continue with `pick`. Only restart the search when the old session is truly gone and cannot be recovered.
 
 When a user says `转存 <片名>`, route that text directly first. Treat it as a 115-transfer intent, equivalent to `115转存 <片名>`: prefer PanSou + HDHive 115 resources, and let AgentResourceOfficer execute the one-stop transfer flow instead of rewriting it into a PT download request. Only use Quark when the user explicitly says `夸克转存`.
