@@ -1,5 +1,9 @@
 # agent-resource-officer changelog
 
+## 0.1.48
+
+- `校准影视技能` now ignores unrelated untracked files during the auto-pull safety check; only tracked local modifications block the pull.
+
 ## 0.1.47
 
 - `校准影视技能` now checks GitHub updates, fast-forwards the local `MoviePilot-Plugins` checkout when clean, and syncs standalone WorkBuddy-style skill installs from the updated repository.

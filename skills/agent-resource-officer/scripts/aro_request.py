@@ -15,7 +15,7 @@ SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))
 EXTERNAL_AGENT_GUIDE_PATH = os.path.join(SKILL_DIR, "EXTERNAL_AGENTS.md")
 WORKBUDDY_GUIDE_PATH = EXTERNAL_AGENT_GUIDE_PATH
-HELPER_VERSION = "0.1.47"
+HELPER_VERSION = "0.1.48"
 HELPER_COMMANDS = [
     "auto",
     "calibrate",
@@ -1457,7 +1457,7 @@ def git_repo_update_payload():
 
     branch = run_git(["branch", "--show-current"], repo_root)
     branch_name = branch.get("stdout") or "main"
-    status = run_git(["status", "--porcelain=v1"], repo_root)
+    status = run_git(["status", "--porcelain=v1", "--untracked-files=no"], repo_root)
     if not status.get("ok"):
         return {
             "attempted": True,
@@ -1471,7 +1471,7 @@ def git_repo_update_payload():
         return {
             "attempted": True,
             "status": "dirty_worktree",
-            "message": "检测到本地未提交改动，已跳过自动拉取以避免覆盖本地工作。",
+            "message": "检测到已跟踪文件存在本地未提交改动，已跳过自动拉取以避免覆盖本地工作。",
             "repo_root": repo_root,
             "branch": branch_name,
         }
