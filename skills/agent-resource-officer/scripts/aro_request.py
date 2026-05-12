@@ -15,7 +15,7 @@ SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))
 EXTERNAL_AGENT_GUIDE_PATH = os.path.join(SKILL_DIR, "EXTERNAL_AGENTS.md")
 WORKBUDDY_GUIDE_PATH = EXTERNAL_AGENT_GUIDE_PATH
-HELPER_VERSION = "0.1.44"
+HELPER_VERSION = "0.1.47"
 HELPER_COMMANDS = [
     "auto",
     "calibrate",
@@ -1370,17 +1370,91 @@ def run_git(args, cwd, timeout=30):
     }
 
 
+def moviepilot_repo_candidates():
+    candidates = [
+        os.environ.get("ARO_REPO_ROOT"),
+        os.environ.get("MOVIEPILOT_PLUGINS_REPO"),
+        REPO_ROOT,
+        os.getcwd(),
+        os.path.expanduser("~/workspace/MoviePilot-Plugins"),
+        os.path.expanduser("~/WorkBuddy/MoviePilot-Plugins"),
+        os.path.expanduser("~/MoviePilot-Plugins"),
+    ]
+    seen = set()
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = os.path.abspath(os.path.expanduser(candidate))
+        if path in seen:
+            continue
+        seen.add(path)
+        yield path
+
+
+def find_moviepilot_plugins_repo():
+    for candidate in moviepilot_repo_candidates():
+        repo = run_git(["rev-parse", "--show-toplevel"], candidate)
+        if not repo.get("ok"):
+            continue
+        repo_root = (repo.get("stdout") or candidate).splitlines()[-1].strip()
+        if (
+            os.path.exists(os.path.join(repo_root, "AgentResourceOfficer", "__init__.py"))
+            and os.path.exists(os.path.join(repo_root, "skills", "agent-resource-officer", "SKILL.md"))
+        ):
+            return repo_root
+    return ""
+
+
+def sync_installed_skill_from_repo(repo_root):
+    source_dir = os.path.join(repo_root, "skills", "agent-resource-officer")
+    target_dir = SKILL_DIR
+    if os.path.realpath(source_dir) == os.path.realpath(target_dir):
+        return {
+            "attempted": False,
+            "status": "source_checkout",
+            "message": "当前 helper 已在仓库 skill 目录中运行，无需同步 standalone skill。",
+        }
+    if not os.path.exists(os.path.join(source_dir, "install.sh")):
+        return {
+            "attempted": False,
+            "status": "missing_installer",
+            "message": "仓库中未找到 skill 安装脚本，已跳过 standalone skill 同步。",
+        }
+    try:
+        proc = subprocess.run(
+            ["bash", os.path.join(source_dir, "install.sh"), "--target", target_dir],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=240,
+        )
+    except Exception as exc:
+        return {
+            "attempted": True,
+            "status": "sync_failed",
+            "message": f"同步 standalone skill 失败：{exc}",
+        }
+    return {
+        "attempted": True,
+        "status": "synced" if proc.returncode == 0 else "sync_failed",
+        "message": "standalone skill 已同步到最新版。" if proc.returncode == 0 else "standalone skill 同步失败。",
+        "target_dir": target_dir,
+        "stdout": (proc.stdout or "").strip(),
+        "stderr": (proc.stderr or "").strip(),
+    }
+
+
 def git_repo_update_payload():
-    repo = run_git(["rev-parse", "--show-toplevel"], REPO_ROOT)
-    if not repo.get("ok"):
+    repo_root = find_moviepilot_plugins_repo()
+    if not repo_root:
         return {
             "attempted": False,
             "status": "not_git_checkout",
             "message": "未检测到 MoviePilot-Plugins Git 仓库，跳过仓库更新检查。",
             "repo_root": REPO_ROOT,
+            "candidate_hint": "可设置 ARO_REPO_ROOT=/path/to/MoviePilot-Plugins 让 standalone skill 找到仓库。",
         }
 
-    repo_root = (repo.get("stdout") or REPO_ROOT).splitlines()[-1].strip()
     branch = run_git(["branch", "--show-current"], repo_root)
     branch_name = branch.get("stdout") or "main"
     status = run_git(["status", "--porcelain=v1"], repo_root)
@@ -1429,6 +1503,7 @@ def git_repo_update_payload():
 
     pull_text = "\n".join(part for part in [pull.get("stdout") or "", pull.get("stderr") or ""] if part).strip()
     already_current = "Already up to date." in pull_text or "Already up-to-date." in pull_text
+    sync_result = sync_installed_skill_from_repo(repo_root)
     return {
         "attempted": True,
         "status": "up_to_date" if already_current else "updated",
@@ -1438,6 +1513,7 @@ def git_repo_update_payload():
         "head": head.get("stdout") or "",
         "latest_commit": latest.get("stdout") or "",
         "pull_output": pull_text,
+        "skill_sync": sync_result,
     }
 
 
@@ -1457,7 +1533,7 @@ def calibration_payload(include_repo_update=False):
         "route_alias": "python3 scripts/aro_request.py route '校准影视技能'",
         "agent_instruction": "用户说“校准影视技能”时，先检查 MoviePilot-Plugins 仓库更新并用 git pull --ff-only 拉取最新版；然后重新加载 agent-resource-officer skill 的资源流语义。",
         "hard_rules": [
-            "每次用户说 校准影视技能 / 影视技能校准，都先在 MoviePilot-Plugins 仓库执行 git fetch origin --prune，然后在工作区干净时执行 git pull --ff-only origin <当前分支>；若有本地未提交改动或无法快进，只报告原因并继续校准，不要强行覆盖。",
+            "每次用户说 校准影视技能 / 影视技能校准，都先找到 MoviePilot-Plugins 仓库并执行 git fetch origin --prune，然后在工作区干净时执行 git pull --ff-only origin <当前分支>；若 helper 是 standalone 安装副本，拉取后还要把仓库里的 agent-resource-officer skill 同步回当前 skill 目录；若有本地未提交改动或无法快进，只报告原因并继续校准，不要强行覆盖。",
             "资源流必须走 agent-resource-officer skill/helper，不要自己改写成 MCP、curl、TMDB 或底层网盘 API。",
             "下载 <片名> = MoviePilot 原生 MP/PT；片名不明确先选影片，片名明确后直接生成最多 3 个最佳 PT 候选的待确认下载方案，不展示完整 PT 列表、不走云盘、不自动提交真实下载。",
             "下载候选影片列表出来后，必须保持同一个 helper session，把用户回复的候选编号原样 route 回去；不要改写成 下载 <候选标题 年份>。",
@@ -1491,6 +1567,9 @@ def format_calibration_text(payload):
             repo_line = f"{repo_line}（{branch or 'unknown'} {head or ''}）".strip()
         if repo_line:
             lines.extend(["", repo_line])
+        sync_result = repo_update.get("skill_sync") or {}
+        if sync_result.get("message"):
+            lines.append(sync_result.get("message"))
     lines.extend([
         "",
         "请立即按 agent-resource-officer skill 的固定语义执行资源流：",

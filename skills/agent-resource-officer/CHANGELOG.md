@@ -1,8 +1,8 @@
 # agent-resource-officer changelog
 
-## 0.1.44
+## 0.1.47
 
-- `校准影视技能` now checks GitHub updates and fast-forwards the local `MoviePilot-Plugins` checkout before applying calibration rules when the working tree is clean.
+- `校准影视技能` now checks GitHub updates, fast-forwards the local `MoviePilot-Plugins` checkout when clean, and syncs standalone WorkBuddy-style skill installs from the updated repository.
 
 ## 0.1.46
 

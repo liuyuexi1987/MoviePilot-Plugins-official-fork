@@ -2,7 +2,7 @@
 
 当前插件版本：`Agent影视助手 0.2.69`
 
-当前 helper 版本：`agent-resource-officer 0.1.44`
+当前 helper 版本：`agent-resource-officer 0.1.47`
 
 让 `OpenClaw`、`Hermes`、`WorkBuddy` 或其他外部智能体，也能稳定调用 MoviePilot 的搜片、转存、下载、签到和修复能力。
 
