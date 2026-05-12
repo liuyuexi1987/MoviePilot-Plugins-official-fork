@@ -90,6 +90,23 @@ for tool_name in hdhive-cookie-export quark-cookie-export; do
       find "${target_tool_dir}" -name '__pycache__' -type d -prune -exec rm -rf {} +
       find "${target_tool_dir}" -name '*.pyc' -delete
     fi
+    if [[ -f "${target_tool_dir}/requirements.txt" ]]; then
+      if command -v python3 >/dev/null 2>&1; then
+        echo "Installing Python dependencies for ${tool_name}..."
+        if python3 -m venv "${target_tool_dir}/.venv"; then
+          if ! "${target_tool_dir}/.venv/bin/python" -m pip install --upgrade pip >/dev/null 2>&1; then
+            echo "Warning: failed to upgrade pip for ${tool_name}; continuing." >&2
+          fi
+          if ! "${target_tool_dir}/.venv/bin/python" -m pip install -r "${target_tool_dir}/requirements.txt"; then
+            echo "Warning: failed to install dependencies for ${tool_name}; cookie refresh may need manual pip install." >&2
+          fi
+        else
+          echo "Warning: failed to create venv for ${tool_name}; cookie refresh may need manual setup." >&2
+        fi
+      else
+        echo "Warning: python3 not found; cookie refresh tools may need manual dependency install." >&2
+      fi
+    fi
   fi
 done
 

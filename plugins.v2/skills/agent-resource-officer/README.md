@@ -1,12 +1,12 @@
 # agent-resource-officer
 
-公开版 AgentResourceOfficer Skill 模板，用来让外部智能体通过 MoviePilot 插件接口控制 115 云盘、夸克云盘等云盘资源工作流。插件是服务端执行层；Skill/helper 是客户端调度层。
+公开版 AgentResourceOfficer Skill 模板，用来让外部智能体通过 MoviePilot 插件接口控制盘搜、影巢、115、夸克、MP/PT 搜索、下载、更新检查、编号选择和 Cookie 修复等资源工作流。插件是服务端执行层；Skill/helper 是客户端调度层。
 
-当前 helper 版本：`0.1.42`
+当前 helper 版本：`0.1.43`
 
 ## 当前状态
 
-- 当前插件版本：`Agent影视助手 0.2.68`
+- 当前插件版本：`Agent影视助手 0.2.69`
 - 当前最小循环：`startup -> decide --summary-only -> route --summary-only -> followup --summary-only`
 - 当前优先读取字段：`recommended_agent_behavior`、`auto_run_command`、`confirm_command`、`display_command`
 - 当前 AI 失败样本只读诊断入口：
@@ -25,15 +25,20 @@
   - `python3 scripts/aro_request.py route --text "资源决策 蜘蛛侠" --summary-only`
   - `python3 scripts/aro_request.py route --text "资源决策 蜘蛛侠 详情" --summary-only`
 - 当前搜索口径：
-  - `搜索 <片名>` / `找 <片名>` 默认先走盘搜
-  - `云盘搜索 <片名>` 固定走盘搜 + 影巢
-  - `影巢搜索 <片名>` 明确走影巢直接列表
-  - `MP搜索 <片名>` / `PT搜索 <片名>` 明确走 MoviePilot 原生 PT 搜索
-- `转存 <片名>` 走云盘资源一条龙转存，优先盘搜 + 影巢
+  - `搜索 <片名>` / `找 <片名>` 默认优先走 MP/PT；如果 MP/PT 已关闭，再按当前启用源回退
+  - `盘搜搜索 <片名>` 固定先查盘搜，没结果时按开关补查影巢
+  - `影巢搜索 <片名>` 固定先查影巢，没结果时按开关补查盘搜
+  - `云盘搜索 <片名>` 已废弃，只会返回改用 `盘搜搜索` / `影巢搜索` 的提示
+  - `搜索 第 3 集`、`搜索 E03` 这类带集数线索的写法，会直接按 MP/PT 搜索，不再回退到云盘
+  - `盘搜更新检查 <片名>` / `影巢更新检查 <片名>` 是云盘侧更新检查；`更新检查 xx 剧` / `检查 xx 剧` 按 MP/PT 搜索处理
+  - `MP搜索 <片名>` / `PT搜索 <片名>` 明确走 MoviePilot 原生 PT 搜索；片名有歧义时先返回 MP/TMDB 候选，用户选编号后再搜索 PT
+- `转存 <片名>` 默认等同 `115转存 <片名>`，会先做影片确认，再只从 115 资源里择优转存
+- `夸克转存 <片名>` 才会走夸克资源转存
 - `下载 <片名>` 走 MP/PT 直接下载
+- `115登录` / `115转存` 不再强依赖 `P115StrmHelper`；有它更适合做 115 整理、STRM 和旧登录态复用，没有它也可以直接扫码后完成 115 转存
 - 当前更新口径：
   - `更新 <片名>` / `更新检查 <片名>` / `检查 <片名>` 先走更新检查
-  - 直接展示官方参考进度、盘搜最新集资源、影巢最新集资源
+  - 直接展示TMDB 参考进度、盘搜最新集资源、影巢最新集资源
   - 不要先清空会话，不要先改走影巢候选
   - 资源列表必须保留原始编号，方便后续直接回编号
 - 当前破坏性目录命令：
@@ -122,7 +127,7 @@ ARO_QUARK_COOKIE_RESTART_CONTAINER=moviepilot-v2
 
 - `python3 scripts/aro_request.py route "盘搜搜索 大君夫人"`
 - `python3 scripts/aro_request.py route --text "盘搜搜索 大君夫人"`
-- `python3 scripts/aro_request.py route "云盘搜索 大君夫人"`
+- `python3 scripts/aro_request.py route "盘搜搜索 大君夫人"`
 - `python3 scripts/aro_request.py route "智能搜索 蜘蛛侠"`
 
 `route`、`pick`、`workflow`、`plan-execute`、`followup` 还支持：
@@ -163,7 +168,7 @@ python3 scripts/aro_request.py hdhive-cookie-refresh
 python3 scripts/aro_request.py hdhive-checkin-repair
 ```
 
-前者会从本机浏览器导出完整网页 Cookie 并自动写回 MoviePilot/AgentResourceOfficer；后者会在刷新 Cookie 后直接再跑一次 `影巢签到`。当 `影巢签到` 或 `影巢签到日志` 明确提示网页登录态失效时，优先使用这两条命令，不要手工复制 Cookie。
+前者会从智能体所在电脑的本机浏览器导出完整网页 Cookie，并自动写回 MoviePilot/AgentResourceOfficer；后者会在刷新 Cookie 后直接再跑一次 `影巢签到`。当 `影巢签到` 或 `影巢签到日志` 明确提示网页登录态失效时，优先使用这两条命令，不要手工复制 Cookie。
 
 夸克 Cookie 刷新与转存修复：
 
@@ -173,7 +178,7 @@ python3 scripts/aro_request.py quark-transfer-repair
 python3 scripts/aro_request.py quark-transfer-repair --retry-text "选择 7" --session default
 ```
 
-前者会从本机浏览器导出夸克 Cookie 并自动写回 `AgentResourceOfficer` / `QuarkShareSaver`；后者会在刷新 Cookie 后检查夸克健康状态，必要时还能顺手重试一条刚才失败的转存命令。只有明确报出 `require login [guest]`、`夸克登录态已过期` 这类登录态问题时，才建议走这条修复链；分享受限、分享者封禁等错误不要误判成 Cookie 失效。
+前者会从智能体所在电脑的本机浏览器导出夸克 Cookie，并自动写回 `AgentResourceOfficer` / `QuarkShareSaver`；后者会在刷新 Cookie 后检查夸克健康状态，必要时还能顺手重试一条刚才失败的转存命令。只有明确报出 `require login [guest]`、`夸克登录态已过期` 这类登录态问题时，才建议走这条修复链；分享受限、分享者封禁等错误不要误判成 Cookie 失效。
 
 `plan-execute` 返回里会保留插件给出的 `recommended_action` 和 `follow_up_hint`。如果不想自己解析下一步，也可以直接执行 `python3 scripts/aro_request.py followup --session 'agent:<会话ID>'`。
 
@@ -426,7 +431,7 @@ AI 失败样本链现在分两步：
 WorkBuddy、Hermes、OpenClaw（小龙虾）、微信侧智能体或其他外部智能体接入时，可以直接复用：
 
 - [外部智能体接入 Agent影视助手](../../docs/AGENT_RESOURCE_OFFICER_EXTERNAL_AGENTS.md)
-- [Skill 包内外部智能体接入文件](./EXTERNAL_AGENTS.md)
+- Skill 包内外部智能体接入文件：`skills/agent-resource-officer/EXTERNAL_AGENTS.md`
 - `PROMPTS.md` 里的外部智能体提示词段落
 
 `decide` 是单次决策入口：
@@ -501,6 +506,19 @@ python3 scripts/aro_request.py plans-clear plan-xxx
 - `session-clear` / `sessions-clear` 是写入型清理命令，用于清理放弃的会话或 pending 115 恢复状态。
 - `plans-clear` 是写入型清理命令，优先使用 `--plan-id` 精确清理；批量清理时再使用 `--session`、`--executed`、`--unexecuted` 或 `--all-plans`。
 
+长线程维护：
+
+如果外部智能体接的是微信、WorkBuddy、Claw、Hermes 或 OpenClaw 这类长期不断开的线程，用久以后可能会被旧测试上下文污染。典型表现是：`15详情` 被改写成 `选择 15`、编号续接到旧结果、或展示格式突然回到旧规则。
+
+这时先清当前 session 和旧计划，再让智能体重新读取 Skill：
+
+```bash
+python3 scripts/aro_request.py session-clear --session default
+python3 scripts/aro_request.py plans-clear --session default
+```
+
+如果你给每个用户或群聊分配了固定 session，例如 `agent:wechat-room-1`，把 `default` 换成实际 session。不要把这一步放到普通搜索或更新检查前自动执行，否则会破坏正常编号续接。
+
 ## 偏好与评分
 
 ```bash
@@ -554,14 +572,18 @@ python3 scripts/aro_request.py route --text "执行 plan-xxxx" --session agent:d
 
 普通 `搜索/找 <片名>` 的返回应尽量原样展示资源官给出的编号列表，不要再二次改写成“资源状态”“推荐清单”“费用/评分/推荐星级”之类的摘要。最好的做法是保留原列表和下一步提示，只在前后补一两句极短说明。
 
-`云盘搜索 <片名>` 也应尽量原样展示资源官给出的组合结果。不要把 `云盘搜索` 偷换成 `盘搜搜索`，也不要把插件已经给出的 `盘搜结果 / 影巢结果` 两段重新压成“剧集信息 / 推荐资源 / 分析结论”的导购摘要。优先保留：
+`盘搜搜索 <片名>` 和 `影巢搜索 <片名>` 也应尽量原样展示资源官给出的组合结果。不要把插件已经给出的 `盘搜结果 / 影巢结果` 两段重新压成“剧集信息 / 推荐资源 / 分析结论”的导购摘要。优先保留：
 - `盘搜结果`
 - `影巢结果`
 - 原始编号
 - 盘搜原始链接
 - 插件原生下一步提示
 
-`云盘搜索` 返回后，不要自行改写成每个来源各自从 `1` 开始编号的小表格，也不要只摘“亮点”。如果插件返回了全局编号，就保留全局编号；如果插件提示“影巢候选未自动展开”，也应原样保留这句，而不是把它改成一句“影巢还有候选，需要可发影巢搜索”然后丢掉上文结构。
+`盘搜搜索` / `影巢搜索` 返回后，不要自行改写成每个来源各自从 `1` 开始编号的小表格，也不要只摘“亮点”。如果插件返回了全局编号，就保留全局编号；如果插件提示“影巢候选未自动展开”，也应原样保留这句，而不是把它改成一句“影巢还有候选，需要可发影巢搜索”然后丢掉上文结构。
+
+`MP搜索` / `PT搜索` 返回后，也不要自行改写成简表。尤其不要重写英文 release title，插件会在点号标题里加入隐藏断点，并用 `🧲`、`🌱`、`🎁`、`💾`、`⭐` 等 emoji 改善手机微信阅读；这些标记都应原样保留。
+
+`更新检查` / `检查` 返回后，同样不要改写成 `#: 来源 / 详情 / 日期` 这种字段表。插件已经会输出 `🟨 盘搜结果`、`🟦 影巢结果`、`🗄 #编号 夸克`、`📺 #编号 115`、`🕒日期`、`📌 集数`，这些行应原样保留，最多在列表后追加一段很短的自然语言建议。
 
 夸克转存失败时，不要自己补一段“可能是默认转存目录不存在或有问题”“换个 path=/ 试试”这类猜测。只有当插件明确指出路径问题时，才建议改路径；如果插件只返回 `夸克转存失败：无法转存到 /飞书`，更稳妥的表述应是“原因未明，先不要自行推断路径问题”。
 
@@ -627,4 +649,4 @@ python3 scripts/aro_request.py workflow --workflow mp_transfer_history --keyword
 - HTTP 调用使用 `?apikey=MP_API_TOKEN`。
 - 不包含个人路径、API Key、Cookie 或 Token。
 - 推荐搭配支持 Skill 和工具调度的外部智能体使用，例如腾讯 WorkBuddy、Hermes、OpenClaw（小龙虾），或其他兼容 Skill 工作流的客户端。
-- 版本记录见 [CHANGELOG.md](./CHANGELOG.md)。
+- 版本记录见：`skills/agent-resource-officer/CHANGELOG.md`。

@@ -1,11 +1,11 @@
 ---
 name: agent-resource-officer
-description: Control AgentResourceOfficer, the MoviePilot cloud-drive resource workflow hub, from an external agent. Use when an agent should route natural-language 115/Quark cloud-drive resource requests, inspect startup/recovery state, fetch low-token request templates by recipe, continue numbered choices, or execute saved plans through AgentResourceOfficer instead of calling HDHive, 115, Quark, or PanSou APIs directly.
+description: Control AgentResourceOfficer, the MoviePilot resource workflow hub, from an external agent. Use when an agent should route title-based resource commands including PanSou, HDHive, 115, Quark, MP/PT search, downloads, update checks, numbered choices, paging, cookie repair, startup/recovery state, request templates, or saved plans through AgentResourceOfficer instead of calling MoviePilot MCP search tools, TMDB, HDHive, 115, Quark, or PanSou APIs directly.
 ---
 
 # AgentResourceOfficer Skill
 
-Use this skill when the user wants an external agent to operate the MoviePilot 115/Quark cloud-drive resource workflow through `AgentResourceOfficer`.
+Use this skill when the user wants an external agent to operate MoviePilot title-based resource workflows through `AgentResourceOfficer`, including PanSou, HDHive, 115, Quark, MP/PT search, download, update-check, numbered picking, paging, and repair flows.
 
 The plugin is the capability layer. The agent should orchestrate, display choices, ask for confirmation when required, and call the stable assistant endpoints.
 
@@ -17,7 +17,7 @@ Public repository:
 https://github.com/liuyuexi1987/MoviePilot-Plugins
 ```
 
-To reproduce this skill on another machine, clone the repository and install the bundled skill:
+Install this skill on the machine running the external agent:
 
 ```bash
 git clone https://github.com/liuyuexi1987/MoviePilot-Plugins.git
@@ -26,7 +26,7 @@ bash skills/agent-resource-officer/install.sh --dry-run
 bash skills/agent-resource-officer/install.sh
 ```
 
-Preferred local config:
+Preferred config file:
 
 ```text
 ~/.config/agent-resource-officer/config
@@ -39,7 +39,52 @@ ARO_BASE_URL=http://127.0.0.1:3000
 ARO_API_KEY=your_moviepilot_api_token
 ```
 
-Set `ARO_BASE_URL` to the MoviePilot address reachable from the machine running the external agent. Use `http://127.0.0.1:3000` only when MoviePilot is on the same machine.
+Rules:
+
+- `ARO_BASE_URL` must be the MoviePilot address reachable from the machine running the external agent.
+- Use `127.0.0.1` only when MoviePilot is on the same machine.
+- If the user has multiple MoviePilot instances, `ARO_BASE_URL` decides which one receives `下载` / `MP搜索` / `PT搜索` / `转存`.
+- `下载` / `MP搜索` / `PT搜索` use the downloader configured inside that MoviePilot instance, so do not assume "local MP" means "local download".
+- If the target MoviePilot is only for cloud-drive/STRM workflows, do not confirm PT downloads through it.
+- If the server plugin sets `mp_download_save_path`, treat it as a server-side safety setting. Never invent that path in chat.
+
+## Routing Boundary
+
+Use MoviePilot MCP only when it is truly connected in the current client and the corresponding MCP tools are visible in the active tool list.
+
+Default boundary:
+
+- MoviePilot native read-only or light management queries may prefer MCP when MCP is really available.
+- Title-based resource workflows stay on `agent-resource-officer`.
+- If MCP is not explicitly available, continue to use helper/HTTP route flow and do not pretend MCP exists.
+
+Resource commands that must go straight to `route` / `pick`:
+
+- `搜索` / `找`
+- `盘搜` / `盘搜搜索`
+- `影巢` / `影巢搜索`
+- `MP搜索` / `PT搜索`
+- `转存` / `115转存` / `夸克转存`
+- `下载`
+- `更新` / `更新检查` / `检查`
+- `盘搜更新检查` / `影巢更新检查`
+- `选择` / `详情` / `n` / `下一页`
+- numbered follow-ups
+
+Episode-aware plain searches such as `搜索 第 3 集`, `搜索 E03`, or `搜索 更新至 第 10 集` should also be treated as explicit MP/PT searches and must not fall back to cloud search.
+Cloud update checks must carry a source prefix: use `盘搜更新检查 <片名>` or `影巢更新检查 <片名>`. Bare `更新检查 xx 剧` / `检查 xx 剧` should be treated as MP/PT search intent.
+
+Core rules:
+
+- `转存 <片名>` means `115转存 <片名>` by default; only explicit `夸克转存` should use Quark.
+- `下载 <片名>` means MoviePilot/PT only. Never rewrite it into cloud search or cloud transfer.
+- Ambiguous write-intent titles such as `下载 蜘蛛侠` or `转存 蜘蛛侠` must first resolve MoviePilot/TMDB candidates, then continue with the exact chosen title and year.
+- `下载1` generates or selects the current PT download plan. It is not confirmation for an older saved plan.
+- In PT result lists, plain `1` / `选择 1` directly downloads the selected PT result. Do not turn it into a detail/review step.
+- Cloud-drive and HDHive resource lists still support read-only detail cards via `选择 1 详情` or `详情 1`.
+- Before confirming PT download execution, make sure the connected MoviePilot is the real download instance, not a cloud-drive/STRM-only instance.
+- If the user says `校准影视技能`, run `python3 scripts/aro_request.py calibrate` or `python3 scripts/aro_request.py route "校准影视技能"` first, apply the returned hard rules to the current session, then reply only `影视技能已校准。`.
+- For explicit title searches such as `MP 搜索 罪无可逃`, the first and only initial action is helper `route "<原话>" --session <session>`. Do not pre-call TMDB, MCP search, raw MoviePilot API, or torrent search before that helper route.
 
 Environment overrides:
 
@@ -66,7 +111,7 @@ If this skill is installed from the `MoviePilot-Plugins` repository checkout, th
 - `tools/hdhive-cookie-export/`
 - `tools/quark-cookie-export/`
 
-You can still override them with `ARO_HDHIVE_COOKIE_EXPORT_DIR` and `ARO_QUARK_COOKIE_EXPORT_DIR`.
+The install helper copies these tools into the installed skill directory as `tools/...`, so a standalone installed skill can call `hdhive-cookie-refresh`, `hdhive-checkin-repair`, `quark-cookie-refresh`, and `quark-transfer-repair` directly. You can still override them with `ARO_HDHIVE_COOKIE_EXPORT_DIR` and `ARO_QUARK_COOKIE_EXPORT_DIR`.
 
 Optional install helper:
 
@@ -138,19 +183,46 @@ Use `external-agent` when handing this Skill to WorkBuddy, Hermes, OpenClaw（�
 ```bash
 python3 scripts/aro_request.py external-agent
 python3 scripts/aro_request.py external-agent --full
+python3 scripts/aro_request.py calibrate
 ```
 
 `external-agent` prints the compact prompt and minimal tool contract. `external-agent --full` prints the full bundled handoff guide. `workbuddy` remains a compatibility alias only; new integrations should use `external-agent`.
 
-When a user says plain `搜索 <片名>` or `找 <片名>`, pass that text through to `route` first. Do not guess that the user meant HDHive, and do not continue an old result session by sending `选择 1` unless the user actually chose an item in the current round. Default plain search should start from PanSou.
+`calibrate` prints a compact calibration card for long-lived external-agent threads. Use it when a WeChat/WorkBuddy/Claw/Hermes/OpenClaw session has been compressed or starts rewriting commands incorrectly, for example changing `下载 <片名>` into cloud transfer, treating cloud detail as execution, or treating PT numbered downloads as detail review.
 
-When a user says `转存 <片名>`, route that text directly first. Treat it as a cloud-transfer intent: prefer PanSou + HDHive, and let AgentResourceOfficer execute the one-stop transfer flow instead of rewriting it into a PT download request.
+When a user says plain `搜索 <片名>` or `找 <片名>`, pass that text through to `route` first. Do not guess that the user meant HDHive, and do not continue an old result session by sending `选择 1` unless the user actually chose an item in the current round. Default plain search should start from MoviePilot native/PT search; only if MP/PT is disabled should the plugin fall back to other enabled search sources.
 
-When a user says `下载 <片名>`, route that text directly first. Treat it as an MP/PT direct-download intent: prefer MoviePilot native PT search/download, and do not silently rewrite it into a cloud-drive transfer request.
+When the user clearly refers to a previously shown numbered result, for example `刚才那个 22`、`上次的 #22`、`把原来的 22 转存`、`下载 10`、`选择 14`, do not restart search first. Reuse the current session, or recover the latest matching session with `decide --summary-only` / `sessions` / `session`, then continue with `pick`. Only restart the search when the old session is truly gone and cannot be recovered.
 
-When a user says `云盘搜索 <片名>`, route that exact text first. Do not silently replace it with `盘搜搜索 <片名>`. Cloud search is a distinct entry that should compare PanSou and HDHive together; if HDHive stays ambiguous, preserve the plugin's own `影巢结果` hint instead of collapsing everything into a PanSou-only recommendation.
+When a user says `转存 <片名>`, route that text directly first. Treat it as a 115-transfer intent, equivalent to `115转存 <片名>`: prefer PanSou + HDHive 115 resources, and let AgentResourceOfficer execute the one-stop transfer flow instead of rewriting it into a PT download request. Only use Quark when the user explicitly says `夸克转存`.
 
-When a user says `更新 <片名>`, `更新检查 <片名>`, `查更新 <片名>`, or `检查 <片名>`, route that text directly first and treat it as the update-check entry. Do not clear the session first, do not guess that the user meant HDHive candidate search, and do not replace it with a generic search flow. The update flow should first show official reference progress plus PanSou and HDHive latest-episode resources, then let the user choose a numbered resource if needed.
+When a user says `下载 <片名>`, route that text directly first. Treat it as an MP/PT search-and-download intent, not a browsing/listing intent. If the title is ambiguous, show MoviePilot/TMDB title candidates first. Once the title is unambiguous, the plugin should search PT internally and directly return up to three pending download plans for the best PT candidates instead of showing the full PT list. It must not auto-submit a real download from the title command. Only after the plugin has returned pending plans may the user confirm by replying the displayed方案编号 such as `1`, `2`, or `3`, or `执行计划`; route that reply as-is so the plugin can execute the matching pending plan. `下载1` means "generate/select download plan for result 1", not confirmation for an older saved plan. If there is no pending plan in the current session, a bare number must be treated as the current result-list continuation.
+
+When a user says `MP搜索 <片名>`, `MP 搜索 <片名>`, `PT搜索 <片名>`, or `PT 搜索 <片名>`, route that exact text directly first. Treat it as an explicit MoviePilot native/PT search request. Do not rewrite it into `搜索 <片名>`, `盘搜搜索 <片名>`, `影巢搜索 <片名>`, or smart search.
+
+If the same command includes a natural-language latest-episode intent such as `给我最新集`, `最新集`, or `最新一集`, still route the original text directly. AgentResourceOfficer will strip that suffix from the title, detect the highest episode in PT results, and show only candidates containing that latest episode. Do not add older episode batches back into the summary unless the user asks for all results.
+
+If the same command includes a clear episode filter such as `第4集`, `第四集`, `E04`, or `S01E04`, still route the original text directly. AgentResourceOfficer will strip the episode suffix from the title and show only candidates containing that target episode, then renumber the filtered list safely. Do not remove this intent or rewrite it as a generic title search.
+
+For `下载 <片名>` results, relay the plugin's returned message exactly like `MP搜索` / `PT搜索`. If the plugin returns a PT resource list, show the numbered resources, score lines, recommendation, and next-step hints. Never replace the list with a one-line summary such as `PT资源已列出，回编号选详情或下载`. In PT result lists, keep the distinction clear: plain `N` / `选择 N` directly downloads the selected PT result; `下载N` generates a pending download plan; PT result rows do not expose a chat detail card.
+
+If `MP搜索` / `PT搜索` returns a MoviePilot media candidate list, do not choose for the user. Show the candidates, ask the user to reply with a number, then call `pick <number>` to continue the PT search. For ambiguous titles such as `蜘蛛侠`, this candidate step is expected and safer than assuming the 2002 movie.
+
+If the original `MP搜索` / `PT搜索` command included `最新集` / `给我最新集` and then returned a media candidate list, the user's numeric reply must be routed in the same helper session. Do not run a fresh bare `route "1"` in another/default session, and do not summarize older episode batches as latest results. The plugin will preserve the latest-episode filter after the candidate is selected; relay that returned message as-is.
+
+After `下载 <片名>` returns a title candidate list, preserve the same helper session and route the user's numeric reply exactly as the reply text, for example `python3 scripts/aro_request.py route "5" --session <same-session>`. Do not reconstruct it as `下载 <候选标题 年份>`, because that loses the candidate session and can change behavior. If the selected title has no PT resources, say that MP/PT currently has no downloadable result; do not silently fall back to PanSou, HDHive, Quark, 115, or cloud transfer. Cloud resources require an explicit `盘搜搜索` / `影巢搜索` / `转存` / `夸克转存` / `115转存` command.
+
+For `MP搜索` / `PT搜索` results, relay the plugin's returned message exactly. Do not compress it into a new custom list such as `PT 资源共 N 条`, and do not rewrite release titles. Preserve the plugin's emoji markers (`🧲`, `🌱`, `🎁`, `💾`, `⭐`, etc.) and invisible breaks in dotted release names; they are intentional for WeChat/mobile readability.
+
+Do not renumber MP/PT result lists. If the plugin returns visible item numbers like `2, 4, 21, 29`, keep those exact numbers in the user-facing reply and in follow-up commands such as `选择 2` or `下载2`. Never rewrite them to `1, 2, 3, 4`, because MP/PT download actions are keyed to the plugin's visible numbers. Do not append your own “当前最高分候选” or “回复选择 N” footer when the plugin message already includes recommendation and next-step hints.
+
+When the current client has no MoviePilot MCP tools, do not announce an MCP fallback for `MP搜索` / `PT搜索`. Just call `python3 scripts/aro_request.py route "<原始用户命令>" --session <session>` and relay the returned message.
+
+`云盘搜索` is deprecated. If a user still says `云盘搜索 <片名>`, do not invent your own combined search. Let the plugin return its deprecation hint, then guide the user toward `盘搜搜索 <片名>` or `影巢搜索 <片名>`.
+
+When a user says `更新 <片名>`, `更新检查 <片名>`, `查更新 <片名>`, `检查 <片名>`, or a glued form like `检查大君夫人`, route that text directly first and treat it as the update-check entry unless the query carries explicit episode/series-search intent such as `第 3 集`, `E03`, or a trailing `剧`; those should remain MP/PT searches. Do not clear the session first, do not guess that the user meant HDHive candidate search, and do not replace it with a generic search flow. Cloud-side update checks must use `盘搜更新检查 <片名>` or `影巢更新检查 <片名>`. `检查115登录` remains a login-check command, not an update-check command.
+
+For update-check results, relay the plugin's returned message exactly. Preserve the emoji sections and item lines such as `🟨 盘搜结果`, `🟦 影巢结果`, `🗄 #25 夸克`, `📺 #1 115`, `🕒05/02`, and `📌 E01-E09`. Do not transform them into field-table prose like `#: ... 来源: ... 详情: ... 日期: ...`, and do not replace the list with a summary.
 
 When a user says `刷新影巢Cookie`, do not route that phrase into AgentResourceOfficer. Treat it as a host-side repair action and run:
 
@@ -188,11 +260,25 @@ If there is no safe transfer command to retry, run `python3 scripts/aro_request.
 
 Only use the Quark automatic repair flow when the failure clearly points to login/cookie problems, for example `require login [guest]`, `夸克登录态已过期`, or `当前夸克登录态不足`. Do not trigger it for share-link restrictions, deleted links, or ordinary 403/41031 share bans.
 
-For ordinary search, cloud search, HDHive resource lists, and update-check lists, preserve the plugin's original numbering exactly. Do not reformat a numbered resource list into unnumbered prose, do not collapse numbered items into a separate summary, and do not move the actionable numbers only into a later recommendation paragraph.
+For ordinary search, cloud search, HDHive resource lists, and update-check lists, preserve the plugin's original numbering exactly. Do not reformat a numbered resource list into unnumbered prose, do not collapse numbered items into a separate summary, and do not move the actionable numbers only into a later recommendation paragraph. Smart recommendations are welcome after the original list, and can be as detailed as useful, as long as they reference the original item numbers and do not replace the list.
 
-For cloud search results, prefer the plugin's raw combined layout: keep the `盘搜结果` section, keep the `影巢结果` section, and keep raw links when the plugin returned them. Do not rewrite the answer into a guide like “最佳选择/推荐资源/分析结论/要不要我帮你下载”, and do not hide the source-specific sections behind your own summary.
+The helper's default `route` and `pick` commands print a chat-friendly plain text `message`. Relay that output directly to the user. If you need to parse structured fields programmatically, add `--json-output`; do not parse the plain display text and then reconstruct your own resource list.
+
+For cloud-drive or HDHive numbered detail follow-ups, keep the detail action. `选择 15 详情`, `我要看看 15 的详情`, and `详情十六` are read-only detail requests. They must not be changed into `选择 15` or a direct transfer command. PT result lists do not expose detail cards; plain numbers download PT results.
+
+For PanSou result lists, keep the source section headings (`🟦 115 结果`, `🟨 夸克结果`) and do not repeat provider tags inside every item. Display items as `编号. emoji 标题` rather than `编号. [115] ...` or `编号. [quark] ...`. Dates should keep the clock marker, for example `— 🕒05/07` or the returned `display_datetime`. Preserve physical line breaks between the source heading and each numbered item; if the chat frontend renders Markdown and may collapse normal line breaks, wrap the resource list itself in a fenced `text` block or insert real blank lines after each source heading so Quark items do not collapse into one paragraph.
+
+Do not show raw 115/Quark share links in search result lists. Links belong in the copy-friendly detail card returned by `选择 编号 详情`.
+
+For HDHive/影巢 resource lists, use the same source grouping style: `🟦 115 结果` and `🟨 夸克结果`. Keep each resource as plain numbered items like `1. emoji 标题 · 积分 · 大小 · 集数 · 规格`, not `#1`. Put a real blank line between resource items in Markdown-like chat frontends so WorkBuddy does not collapse the list into one paragraph. A recommendation section is allowed at the end, but keep it after the original list and reference original numbers. If the user needs a shareable link or full metadata, tell them to use `选择 编号 详情`; the detail card is the copy-friendly view.
+
+After displaying a resource list, add or preserve a `智能建议` section when the data is enough to compare quality. Do not over-constrain the recommendation length; explain the tradeoffs naturally around common viewing and storage decisions such as picture quality, episode completeness, subtitle clarity, file size, source reliability, and whether the user explicitly wants 115 or Quark. Do not expose raw score formulas such as `4K +25` as the main explanation. The only hard rule is that recommendations must reference the original item numbers and must not replace or renumber the original list.
+
+For cloud search results, prefer the plugin's raw combined layout: keep the `盘搜结果` section, keep the `影巢结果` section, and keep raw links when the plugin returned them. Do not hide the source-specific sections behind your own summary. A short recommendation is allowed only after the raw list and next-step hint.
 
 For cloud search, never renumber items per source in your own prose. If the plugin returned global numbering like `1..16` plus `17..24`, preserve that exact numbering. Do not convert it into separate `115 1..6 / 夸克 1..10` local indices, and do not collapse the response into a custom “标题/画质/日期/链接” table that drops the plugin's next-step instructions.
+
+When `影巢搜索` falls back to PanSou because HDHive returned no usable result, keep the plugin's original fallback text and numbered resource list. Do not rewrite it into your own progress bulletin like “有新集了”“现在两边都有了” or a custom compact table that hides links, numbering, or next-step hints.
 
 When a Quark transfer fails, do not invent a path diagnosis unless the plugin explicitly said so. If the plugin only returned `夸克转存失败：无法转存到 /飞书`, treat the cause as unknown and do not add guesses like “默认转存目录不存在” or “换成 path=/ 试试” on your own. Only recommend a different path when the plugin itself clearly pointed to a path problem or the user explicitly asked to try another path.
 
@@ -431,6 +517,14 @@ Notes:
 - Use `followup` after `plan-execute` when you want the plugin to choose the correct read-only next step automatically.
 - Use `session-clear` or `sessions-clear` to clear abandoned assistant state after user confirmation.
 - Use `plans-clear --plan-id ...` for exact saved-plan cleanup. Treat bulk cleanup flags as write-side-effect operations requiring confirmation.
+- For long-lived WeChat, WorkBuddy, Claw, Hermes, or OpenClaw threads, stale compressed context can cause bad rewrites such as changing cloud detail into direct selection, or changing PT numbered downloads into detail review. When that happens, clear the current ARO session and saved plans, then reload this skill. Do not run session cleanup before ordinary search or update-check commands, because normal numbered follow-up depends on session continuity.
+
+Long-thread cleanup example:
+
+```bash
+python3 scripts/aro_request.py session-clear --session default
+python3 scripts/aro_request.py plans-clear --session default
+```
 
 ## Preferences And Scoring
 
@@ -466,7 +560,7 @@ Scoring rules are source-specific and plugin-owned. Use `scoring-policy` or `cap
 - PT resources: MoviePilot native site search/download/subscribe. Score seeders, free/promo status, volume factor, resolution, Dolby Vision/HDR, subtitles, release group/site, size, and title match.
 - PT seeders are a hard gate. Default minimum is `3`; seeders `0` means never auto-download.
 - HDHive point cost is a hard gate. Default max is `20`; unknown points cannot auto-unlock.
-- Auto ingest is off by default. Even when `can_auto_execute=true`, the current PT interaction policy should still prefer `plan_id` first unless an internal system path explicitly executes the saved plan.
+- Auto ingest is off by default. PT result-list numbers are an explicit user selection and download directly; explicit plan commands such as `下载1` / `下载最佳` still use the saved `plan_id` confirmation path.
 
 For MP native workflows:
 
@@ -508,17 +602,17 @@ python3 scripts/aro_request.py workflow --workflow mp_recommend_search --source 
 
 `mp_media_detail` is read-only. Use it before search/download/subscribe when the title is ambiguous or the agent needs to confirm MoviePilot's native media recognition, TMDB/Douban/IMDB IDs, year, and media type.
 
-`mp_search_detail` is read-only. Use it after or together with MP native search when the user wants to inspect a numbered PT candidate. It shows seeders, promotion, size, score reasons, and risks. Do not download from this detail step; ask for confirmation or generate a plan before downloading.
+Normal chat PT result lists do not expose a detail option: plain numbers download directly, and `下载N` generates a pending plan. Do not offer `mp_search_detail` as the next step for ordinary users; reserve low-level PT detail inspection for explicit diagnostic/debug use.
 
 `mp_search_best` is read-only and token-efficient. Use it when the user asks the agent to recommend the best PT candidate after MP native search. It searches, ranks by the plugin-owned score, and returns the best candidate detail. It still does not download.
 
-After an MP search session, `下载最佳` generates a saved download plan for the current highest-scoring PT candidate. It does not download immediately; after user confirmation, execute the returned `plan_id` with `plan-execute` or route the natural text `执行计划` / `执行 plan-...`. Then prefer `followup` so the plugin itself can decide whether the best next read is download history, lifecycle, subscribes, or transfer history.
+After an MP search session, `下载最佳` generates a saved download plan for the current highest-scoring PT candidate. It does not download immediately; after user confirmation, execute the returned `plan_id` with `plan-execute`, route the natural text `执行计划` / `执行 plan-...`, or route the same resource number again when the plugin prompt says that number can confirm the pending plan. Then prefer `followup` so the plugin itself can decide whether the best next read is download history, lifecycle, subscribes, or transfer history.
 
-Even if a PT candidate scores high, the current default interaction policy is still `plan_id` first. Treat `can_auto_execute` as a score signal for explanation only; do not assume `下载1` or `下载最佳` will bypass confirmation.
+For explicit PT plan commands such as `下载1` or `下载最佳`, keep the `plan_id` confirmation flow. For ordinary PT result lists, a plain number is the direct download action. Treat `can_auto_execute` as a score signal for explanation only.
 
 For cloud-drive result sessions, `最佳片源` is read-only. It returns the highest-scoring PanSou or HDHive resource detail and must not transfer or unlock by itself. `选择 N 详情` is also read-only. For ordinary `搜索/找 <片名>` sessions, prefer direct numbered picks first and use `计划选择 N` only when the user explicitly wants a saved confirmation plan. Use direct `选择 N` for immediate transfer/unlock after the user confirms that intent.
 
-For ordinary `搜索/找 <片名>` sessions, do not re-summarize the returned list into your own “resource status”, “recommended shortlist”, “费用/评分/推荐星级”, or “要现在下载吗？” style output. Prefer relaying the plugin's original numbered list and next-step hints. If you must add one short sentence, keep it to a plain observation such as “夸克前几条已经更新到 E08” and do not replace the original list body.
+For ordinary `搜索/找 <片名>` sessions, relay the plugin's original numbered list and next-step hints first. You may add a smart recommendation after the list, including a shortlist or tradeoff explanation, but do not replace, renumber, or hide the original list body.
 
 `mp_recommend_search` is the low-token recommendation chain. Without `choice`, it returns a recommendation list and stores the session. With `choice`, it immediately continues the selected title into `mode=mp`, `mode=hdhive`, or `mode=pansou`.
 

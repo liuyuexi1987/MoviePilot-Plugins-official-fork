@@ -300,7 +300,6 @@ class FeishuChannel:
         return (
             "搜索=/smart_entry\n"
             "找=/smart_entry\n"
-            "云盘搜索=/smart_entry\n"
             "MP搜索=/smart_entry\n"
             "PT搜索=/smart_entry\n"
             "原生搜索=/smart_entry\n"
@@ -559,7 +558,10 @@ class FeishuChannel:
         sender_open_id = str(getattr(sender_id, "open_id", "") or "").strip()
         chat_id = str(getattr(message, "chat_id", "") or "").strip()
         if self.debug:
-            logger.info(f"[AgentResourceOfficer][Feishu] event_id={event_id} chat_id={chat_id}")
+            logger.info(
+                f"[AgentResourceOfficer][Feishu] event_id={event_id} "
+                f"chat_id={chat_id} open_id={sender_open_id}"
+            )
 
         if not self._is_allowed(chat_id=chat_id, user_open_id=sender_open_id):
             self.reply_text(chat_id, sender_open_id, "该会话未在白名单中，命令已拒绝。")
@@ -1744,9 +1746,9 @@ class FeishuChannel:
     def _build_menu_text() -> str:
         return (
             "快捷菜单\n"
-            "1. 云盘搜索 片名\n"
-            "2. 盘搜搜索 片名\n"
-            "3. 影巢搜索 片名\n"
+            "1. 盘搜搜索 片名\n"
+            "2. 影巢搜索 片名\n"
+            "3. 搜索 片名\n"
             "4. MP搜索 片名 / PT搜索 片名\n"
             "5. 转存 片名（默认 115）\n"
             "6. 夸克转存 片名\n"

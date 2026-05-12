@@ -127,6 +127,57 @@ def sanitize_cookie_tool_text(text):
     return "\n".join(safe_lines)
 
 
+def first_nonempty_line(text):
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if line:
+            return line
+    return ""
+
+
+def cookie_header_to_map(cookie_header):
+    items = {}
+    for part in str(cookie_header or "").split(";"):
+        if "=" not in part:
+            continue
+        name, value = part.split("=", 1)
+        name = name.strip()
+        value = value.strip()
+        if name and name not in items:
+            items[name] = value
+    return items
+
+
+def build_hdhive_mp_cookie_header(cookie_header):
+    cookie_map = cookie_header_to_map(cookie_header)
+    names = ["token", "csrf_access_token", "refresh_token"]
+    parts = [f"{name}={cookie_map[name]}" for name in names if cookie_map.get(name)]
+    return "; ".join(parts) if parts else str(cookie_header or "").strip()
+
+
+def update_remote_cookie(base_url, api_key, kind, cookie_header):
+    result = request(
+        base_url,
+        api_key,
+        "POST",
+        assistant_path("cookie/update"),
+        body={
+            "kind": kind,
+            "cookie": cookie_header,
+        },
+    )
+    if not isinstance(result, dict) or not result.get("success"):
+        message = result.get("message") if isinstance(result, dict) else ""
+        raise RuntimeError(message or "远端 MoviePilot 拒绝写入 Cookie")
+    return result
+
+
+def remote_moviepilot_config(config):
+    base_url = config_value(config, "ARO_BASE_URL", "MP_BASE_URL", "MOVIEPILOT_URL")
+    api_key = config_value(config, "ARO_API_KEY", "MP_API_TOKEN")
+    return base_url, api_key
+
+
 def resolve_hdhive_cookie_tool_dir(config):
     explicit = cookie_tool_setting(config, "ARO_HDHIVE_COOKIE_EXPORT_DIR")
     candidates = [explicit] if explicit else []
@@ -196,16 +247,23 @@ def run_hdhive_cookie_refresh(config):
             "success": False,
             "message": "未找到影巢 Cookie 导出工具，请先配置 ARO_HDHIVE_COOKIE_EXPORT_DIR。",
         }
+    base_url, api_key = remote_moviepilot_config(config)
+    remote_write = bool(base_url and api_key)
     cmd = [
         runtime["python_bin"],
         runtime["script_path"],
         runtime["site_url"],
         "--browser",
         runtime["browser"],
-        "--write-mp",
-        "--restart-container",
-        runtime["restart_container"],
     ]
+    if remote_write:
+        cmd.append("--no-copy")
+    else:
+        cmd.extend([
+            "--write-mp",
+            "--restart-container",
+            runtime["restart_container"],
+        ])
     try:
         proc = subprocess.run(
             cmd,
@@ -224,19 +282,61 @@ def run_hdhive_cookie_refresh(config):
         }
     stdout = (proc.stdout or "").strip()
     stderr = (proc.stderr or "").strip()
-    safe_stdout = sanitize_cookie_tool_text(stdout)
+    safe_stdout = "" if remote_write else sanitize_cookie_tool_text(stdout)
     safe_stderr = sanitize_cookie_tool_text(stderr)
     lines = [line.strip() for line in safe_stderr.splitlines() if line.strip()]
+    remote_result = {}
+    if proc.returncode == 0 and remote_write:
+        raw_cookie = first_nonempty_line(stdout)
+        mp_cookie = build_hdhive_mp_cookie_header(raw_cookie)
+        if not mp_cookie:
+            return {
+                "success": False,
+                "message": "影巢 Cookie 导出成功，但未捕获到可写回 MoviePilot 的 Cookie。",
+                "returncode": proc.returncode,
+                "tool_dir": runtime["tool_dir"],
+                "script_path": runtime["script_path"],
+                "python_bin": runtime["python_bin"],
+                "browser": runtime["browser"],
+                "site_url": runtime["site_url"],
+                "write_target": "remote_api",
+                "stdout": safe_stdout,
+                "stderr": safe_stderr,
+            }
+        try:
+            remote_result = update_remote_cookie(base_url, api_key, "hdhive", mp_cookie)
+        except Exception as exc:
+            return {
+                "success": False,
+                "message": f"影巢 Cookie 已导出，但写回远端 MoviePilot 失败：{exc}",
+                "returncode": proc.returncode,
+                "tool_dir": runtime["tool_dir"],
+                "script_path": runtime["script_path"],
+                "python_bin": runtime["python_bin"],
+                "browser": runtime["browser"],
+                "site_url": runtime["site_url"],
+                "write_target": "remote_api",
+                "base_url": base_url,
+                "stdout": safe_stdout,
+                "stderr": safe_stderr,
+            }
     return {
         "success": proc.returncode == 0,
-        "message": lines[-1] if lines else ("影巢 Cookie 已刷新并写回 MoviePilot。" if proc.returncode == 0 else ""),
+        "message": (
+            "影巢 Cookie 已刷新并写回远端 MoviePilot。"
+            if proc.returncode == 0 and remote_write
+            else lines[-1] if lines else ("影巢 Cookie 已刷新并写回 MoviePilot。" if proc.returncode == 0 else "")
+        ),
         "returncode": proc.returncode,
         "tool_dir": runtime["tool_dir"],
         "script_path": runtime["script_path"],
         "python_bin": runtime["python_bin"],
         "browser": runtime["browser"],
         "site_url": runtime["site_url"],
-        "restart_container": runtime["restart_container"],
+        "restart_container": "" if remote_write else runtime["restart_container"],
+        "write_target": "remote_api" if remote_write else "local_db",
+        "base_url": base_url if remote_write else "",
+        "remote_write": compact(remote_result) if remote_result else {},
         "stdout": safe_stdout,
         "stderr": safe_stderr,
     }
@@ -249,16 +349,23 @@ def run_quark_cookie_refresh(config):
             "success": False,
             "message": "未找到夸克 Cookie 导出工具，请先配置 ARO_QUARK_COOKIE_EXPORT_DIR。",
         }
+    base_url, api_key = remote_moviepilot_config(config)
+    remote_write = bool(base_url and api_key)
     cmd = [
         runtime["python_bin"],
         runtime["script_path"],
         runtime["site_url"],
         "--browser",
         runtime["browser"],
-        "--write-mp",
-        "--restart-container",
-        runtime["restart_container"],
     ]
+    if remote_write:
+        cmd.extend(["--no-copy", "--show-cookie"])
+    else:
+        cmd.extend([
+            "--write-mp",
+            "--restart-container",
+            runtime["restart_container"],
+        ])
     try:
         proc = subprocess.run(
             cmd,
@@ -277,19 +384,60 @@ def run_quark_cookie_refresh(config):
         }
     stdout = (proc.stdout or "").strip()
     stderr = (proc.stderr or "").strip()
-    safe_stdout = sanitize_cookie_tool_text(stdout)
+    safe_stdout = "" if remote_write else sanitize_cookie_tool_text(stdout)
     safe_stderr = sanitize_cookie_tool_text(stderr)
     lines = [line.strip() for line in safe_stderr.splitlines() if line.strip()]
+    remote_result = {}
+    if proc.returncode == 0 and remote_write:
+        raw_cookie = first_nonempty_line(stdout)
+        if not raw_cookie:
+            return {
+                "success": False,
+                "message": "夸克 Cookie 导出成功，但未捕获到可写回 MoviePilot 的 Cookie。",
+                "returncode": proc.returncode,
+                "tool_dir": runtime["tool_dir"],
+                "script_path": runtime["script_path"],
+                "python_bin": runtime["python_bin"],
+                "browser": runtime["browser"],
+                "site_url": runtime["site_url"],
+                "write_target": "remote_api",
+                "stdout": safe_stdout,
+                "stderr": safe_stderr,
+            }
+        try:
+            remote_result = update_remote_cookie(base_url, api_key, "quark", raw_cookie)
+        except Exception as exc:
+            return {
+                "success": False,
+                "message": f"夸克 Cookie 已导出，但写回远端 MoviePilot 失败：{exc}",
+                "returncode": proc.returncode,
+                "tool_dir": runtime["tool_dir"],
+                "script_path": runtime["script_path"],
+                "python_bin": runtime["python_bin"],
+                "browser": runtime["browser"],
+                "site_url": runtime["site_url"],
+                "write_target": "remote_api",
+                "base_url": base_url,
+                "stdout": safe_stdout,
+                "stderr": safe_stderr,
+            }
     return {
         "success": proc.returncode == 0,
-        "message": lines[-1] if lines else ("夸克 Cookie 已刷新并写回 MoviePilot。" if proc.returncode == 0 else ""),
+        "message": (
+            "夸克 Cookie 已刷新并写回远端 MoviePilot。"
+            if proc.returncode == 0 and remote_write
+            else lines[-1] if lines else ("夸克 Cookie 已刷新并写回 MoviePilot。" if proc.returncode == 0 else "")
+        ),
         "returncode": proc.returncode,
         "tool_dir": runtime["tool_dir"],
         "script_path": runtime["script_path"],
         "python_bin": runtime["python_bin"],
         "browser": runtime["browser"],
         "site_url": runtime["site_url"],
-        "restart_container": runtime["restart_container"],
+        "restart_container": "" if remote_write else runtime["restart_container"],
+        "write_target": "remote_api" if remote_write else "local_db",
+        "base_url": base_url if remote_write else "",
+        "remote_write": compact(remote_result) if remote_result else {},
         "stdout": safe_stdout,
         "stderr": safe_stderr,
     }
@@ -1482,6 +1630,19 @@ def selftest_result():
     quote_value = shell_quote("a'b")
     check("shell_quote_single_quote", quote_value == "'a'\"'\"'b'")
     check("helper_route_command_with_session", helper_route_command("选择 1", session="agent:demo") == "python3 scripts/aro_request.py route '选择 1' --session 'agent:demo'")
+    check(
+        "cookie_header_to_map",
+        cookie_header_to_map("a=1; token=abc; csrf_access_token=def").get("token") == "abc",
+    )
+    check(
+        "hdhive_cookie_payload_prefers_mp_tokens",
+        build_hdhive_mp_cookie_header("a=1; token=abc; csrf_access_token=def; refresh_token=ghi")
+        == "token=abc; csrf_access_token=def; refresh_token=ghi",
+    )
+    check(
+        "hdhive_cookie_payload_fallback_full_header",
+        build_hdhive_mp_cookie_header("a=1; b=2") == "a=1; b=2",
+    )
 
     route_args = normalize_command_args(argparse.Namespace(command="route", extra=["盘搜搜索", "大君夫人"], text=None))
     check("normalize_route_positional_text", route_args.text == "盘搜搜索 大君夫人")
