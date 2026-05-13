@@ -240,8 +240,6 @@ class FeishuChannel:
         "/quark_save",
         "/media_search",
         "/media_download",
-        "/media_subscribe",
-        "/media_subscribe_search",
     }
     _LEGACY_DEFAULT_ALIAS_KEYS = {
         "刮削",
@@ -250,7 +248,6 @@ class FeishuChannel:
         "原生搜索",
         "下载",
         "订阅",
-        "订阅搜索",
         "生成STRM",
         "全量STRM",
         "指定路径STRM",
@@ -258,8 +255,6 @@ class FeishuChannel:
         "夸克",
         "搜索资源",
         "下载资源",
-        "订阅媒体",
-        "订阅并搜索",
     }
 
     def __init__(self, plugin: Any) -> None:
@@ -318,7 +313,6 @@ class FeishuChannel:
             "夸克=/smart_entry\n"
             "下载=/smart_entry\n"
             "订阅=/smart_entry\n"
-            "订阅搜索=/smart_entry\n"
             "链接=/smart_entry\n"
             "处理=/smart_entry\n"
             "115登录=/smart_entry\n"
@@ -344,8 +338,6 @@ class FeishuChannel:
             "继续=/smart_pick\n"
             "搜索资源=/smart_entry\n"
             "下载资源=/smart_entry\n"
-            "订阅媒体=/smart_entry\n"
-            "订阅并搜索=/smart_entry\n"
             "版本=/version"
         )
 
@@ -604,19 +596,25 @@ class FeishuChannel:
 
         if cmd == "/media_download":
             if not arg or not arg.isdigit():
-                self.reply_text(chat_id, open_id, "用法：下载资源 序号\n示例：下载资源 1")
+                self.reply_text(chat_id, open_id, "用法：下载 序号\n示例：下载 1")
                 return True
-            self.reply_text(chat_id, open_id, f"正在生成第 {arg} 条资源的下载计划，请稍候。")
+            self.reply_text(chat_id, open_id, f"正在下载第 {arg} 条 PT 结果，请稍候。")
             self._run_thread("feishu-media-download", self._run_media_download, int(arg), chat_id, open_id)
             return True
 
         if cmd in {"/media_subscribe", "/media_subscribe_search"}:
             if not arg:
-                self.reply_text(chat_id, open_id, "用法：订阅媒体 片名\n示例：订阅媒体 流浪地球2")
+                self.reply_text(chat_id, open_id, "用法：订阅 片名\n示例：订阅 流浪地球2")
                 return True
-            immediate = cmd == "/media_subscribe_search"
-            self.reply_text(chat_id, open_id, f"正在{'订阅并搜索' if immediate else '订阅'}：{arg}")
-            self._run_thread("feishu-media-subscribe", self._run_media_subscribe, arg, immediate, chat_id, open_id)
+            if cmd == "/media_subscribe_search":
+                self.reply_text(
+                    chat_id,
+                    open_id,
+                    "“订阅并搜索 片名”旧命令已取消。\n请改用：订阅 片名\n如需立即看资源，再手动发 MP搜索 / 盘搜搜索 / 影巢搜索。",
+                )
+                return True
+            self.reply_text(chat_id, open_id, f"正在订阅：{arg}")
+            self._run_thread("feishu-media-subscribe", self._run_media_subscribe, arg, False, chat_id, open_id)
             return True
 
         if cmd == "/pansou_search":
@@ -703,7 +701,7 @@ class FeishuChannel:
 
     def _run_media_download(self, index: int, chat_id: str, open_id: str) -> None:
         result = self.plugin.feishu_assistant_route(
-            text=f"下载资源 {index}",
+            text=f"下载 {index}",
             session=self._cache_key(chat_id, open_id),
         )
         self._reply_result(chat_id, open_id, result)
@@ -730,7 +728,7 @@ class FeishuChannel:
             if not results:
                 return f"已识别 {self._format_media_label(mediainfo, season)}，但暂未搜索到资源。"
             self._set_search_cache(cache_key, keyword, mediainfo, results)
-            preview_limit = 20
+            preview_limit = 10
             preview_results = results[:preview_limit]
             lines = [
                 f"已识别：{self._format_media_label(mediainfo, season)}",
@@ -745,8 +743,8 @@ class FeishuChannel:
                 volume = torrent.volume_factor if getattr(torrent, "volume_factor", None) else "未知"
                 lines.append(f"{idx}. [{site}] {title}")
                 lines.append(f"   大小：{size} | 做种：{seeders} | 促销：{volume}")
-            lines.append("下一步：回复“下载资源 序号”会先生成下载计划，不会静默下载。")
-            lines.append("如需长期跟踪，回复“订阅媒体 片名”或“订阅并搜索 片名”。")
+            lines.append("下一步：回复“下载 序号”会直接下载当前 PT 结果。")
+            lines.append("如需长期跟踪，回复“订阅 片名”。")
             return "\n".join(lines)
         except Exception as exc:
             logger.error(f"[AgentResourceOfficer][Feishu] 搜索资源失败：{keyword} {exc}\n{traceback.format_exc()}")
@@ -1123,7 +1121,7 @@ class FeishuChannel:
                 filters = " / ".join(value for value in [item.get("resolution"), item.get("effect"), item.get("quality")] if value) or "默认规则"
                 lines.append(f"{item.get('index')}. #{item.get('id')} {item.get('name')} ({item.get('year') or '-'}){season}")
                 lines.append(f"   状态:{item.get('state') or '-'} | {lack_text} | 规则:{filters} | 下载器:{item.get('downloader') or '默认'}")
-            lines.append("写入操作需确认：可发“搜索订阅 1”“暂停订阅 1”“恢复订阅 1”“删除订阅 1”。")
+            lines.append("写入操作需确认：可发“刷新订阅 1”“暂停订阅 1”“恢复订阅 1”“删除订阅 1”。")
             return {"success": True, "message": "\n".join(lines), "items": items, "total": total, "status": status_name}
         except Exception as exc:
             logger.error(f"[AgentResourceOfficer][Feishu] 查询订阅失败：{exc}\n{traceback.format_exc()}")
@@ -1144,9 +1142,9 @@ class FeishuChannel:
             old_info = sub.to_dict() if hasattr(sub, "to_dict") else {}
             if action_name in {"search", "run"}:
                 if Scheduler is None:
-                    return {"success": False, "message": "搜索订阅失败：当前环境缺少调度器。"}
+                    return {"success": False, "message": "刷新订阅失败：当前环境缺少调度器。"}
                 Scheduler().start(job_id="subscribe_search", **{"sid": sid, "state": None, "manual": True})
-                return {"success": True, "message": f"已触发订阅搜索：#{sid} {getattr(sub, 'name', '')}", "subscribe_id": sid, "action": action_name}
+                return {"success": True, "message": f"已触发订阅刷新：#{sid} {getattr(sub, 'name', '')}", "subscribe_id": sid, "action": action_name}
             if action_name in {"pause", "stop"}:
                 updated = oper.update(sid, {"state": "S"})
                 label = "暂停"
@@ -1468,7 +1466,7 @@ class FeishuChannel:
                 lines.append("已触发一次订阅搜索。")
             return "\n".join(lines)
         except Exception as exc:
-            logger.error(f"[AgentResourceOfficer][Feishu] 订阅媒体失败：{keyword} {exc}\n{traceback.format_exc()}")
+            logger.error(f"[AgentResourceOfficer][Feishu] 订阅失败：{keyword} {exc}\n{traceback.format_exc()}")
             return f"订阅失败：{keyword}\n错误：{exc}"
 
     @staticmethod

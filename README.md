@@ -213,7 +213,7 @@ MoviePilot 整理文件时，会先识别文件名里的片名、年份、季、
 
 | 插件 | 版本 | 说明 |
 |---|---|---|
-| Agent影视助手 | `0.2.69` | 当前主线插件，统一承接盘搜、影巢、115、夸克、PT 下载、飞书入口和外部智能体入口 |
+| Agent影视助手 | `0.2.70` | 当前主线插件，统一承接盘搜、影巢、115、夸克、PT 下载、飞书入口和外部智能体入口 |
 | AI识别增强 | `0.1.12` | MoviePilot 原生识别失败后的本地 LLM 兜底和失败样本治理 |
 | 飞书命令桥接 | `0.5.26` | 旧飞书长连接入口，更多用于兼容老链路 |
 | 影巢 OpenAPI | `0.3.0` | 旧影巢独立插件，主能力已收进 Agent影视助手 |
@@ -235,15 +235,15 @@ MoviePilot 整理文件时，会先识别文件名里的片名、年份、季、
 
 ## 维护信息
 
-当前发布版本：`0.2.69`
+当前发布版本：`0.2.70`
 
-当前 Skill helper 版本：`0.1.49`
+当前 Skill helper 版本：`0.1.51`
 
 当前版本：
 
-- `0.2.69`
+- `0.2.70`
 
-当前 Release：https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.69
+当前 Release：https://github.com/liuyuexi1987/MoviePilot-Plugins/releases/tag/v0.2.70
 
 ---
 

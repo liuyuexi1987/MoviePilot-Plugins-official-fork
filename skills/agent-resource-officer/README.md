@@ -2,7 +2,7 @@
 
 公开版 AgentResourceOfficer Skill 模板，用来让外部智能体通过 MoviePilot 插件接口控制盘搜、影巢、115、夸克、MP/PT 搜索、下载、更新检查、编号选择和 Cookie 修复等资源工作流。插件是服务端执行层；Skill/helper 是客户端调度层。
 
-当前 helper 版本：`0.1.49`
+当前 helper 版本：`0.1.51`
 
 ## 当前状态
 
@@ -20,10 +20,9 @@
 - 当前最低成本入口：
   - `python3 scripts/aro_request.py readiness`
   - `python3 scripts/aro_request.py external-agent`
-  - `python3 scripts/aro_request.py decide --summary-only`
-  - `python3 scripts/aro_request.py route --text "智能搜索 蜘蛛侠" --summary-only`
-  - `python3 scripts/aro_request.py route --text "资源决策 蜘蛛侠" --summary-only`
-  - `python3 scripts/aro_request.py route --text "资源决策 蜘蛛侠 详情" --summary-only`
+  - `python3 scripts/aro_request.py route --text "MP搜索 蜘蛛侠" --summary-only`
+  - `python3 scripts/aro_request.py route --text "盘搜搜索 蜘蛛侠" --summary-only`
+  - `python3 scripts/aro_request.py route --text "影巢搜索 蜘蛛侠" --summary-only`
 - 当前搜索口径：
   - `搜索 <片名>` / `找 <片名>` 默认优先走 MP/PT；如果 MP/PT 已关闭，再按当前启用源回退
   - `盘搜搜索 <片名>` 固定先查盘搜，没结果时按开关补查影巢
@@ -32,10 +31,9 @@
   - `搜索 第 3 集`、`搜索 E03` 这类带集数线索的写法，会直接按 MP/PT 搜索，不再回退到云盘
   - `盘搜更新检查 <片名>` / `影巢更新检查 <片名>` 是云盘侧更新检查；`更新检查 xx 剧` / `检查 xx 剧` 按 MP/PT 搜索处理
   - `MP搜索 <片名>` / `PT搜索 <片名>` 明确走 MoviePilot 原生 PT 搜索；片名有歧义时先返回 MP/TMDB 候选，用户选编号后再搜索 PT
-- `转存 <片名>` 默认等同 `115转存 <片名>`，会先做影片确认，再只从 115 资源里择优转存
-- `夸克转存 <片名>` 才会走夸克资源转存
+- 标题级 `转存 <片名>` / `115转存 <片名>` / `夸克转存 <片名>` 已取消，只保留先搜索、再按编号继续处理的主线
 - `下载 <片名>` 走 MP/PT 直接下载
-- `115登录` / `115转存` 不再强依赖 `P115StrmHelper`；有它更适合做 115 整理、STRM 和旧登录态复用，没有它也可以直接扫码后完成 115 转存
+- `115登录` 不再强依赖 `P115StrmHelper`；有它更适合做 115 整理、STRM 和旧登录态复用，没有它也可以直接扫码登录
 - 当前更新口径：
   - `更新 <片名>` / `更新检查 <片名>` / `检查 <片名>` 先走更新检查
   - 直接展示TMDB 参考进度、盘搜最新集资源、影巢最新集资源
@@ -89,7 +87,7 @@ bash install.sh --target /path/to/skills/agent-resource-officer
 3. 配置连接信息：
 
 ```text
-~/.config/agent-resource-officer/config
+优先使用已安装 skill 目录里的 config；没有本地 config 时，才回退到 ~/.config/agent-resource-officer/config
 ```
 
 示例：
@@ -100,6 +98,8 @@ ARO_API_KEY=your_moviepilot_api_token
 ARO_HDHIVE_COOKIE_EXPORT_DIR=/绝对路径/MoviePilot-Plugins/tools/hdhive-cookie-export
 ARO_QUARK_COOKIE_EXPORT_DIR=/绝对路径/MoviePilot-Plugins/tools/quark-cookie-export
 ```
+
+`install.sh` 首次安装时会把当前全局配置复制到 `<target>/config`；后续重装会保留这个本地 config。这样 `Hermes`、`WorkBuddy`、`OpenClaw` 可以各用各的连接地址，不会再共用同一份默认配置。
 
 `ARO_BASE_URL` 按实际部署填写：同机可以用 `http://127.0.0.1:3000`，局域网可以用 `http://你的局域网IP:3000`，公网反代可以用自己的 HTTPS 域名。
 
@@ -127,8 +127,8 @@ ARO_QUARK_COOKIE_RESTART_CONTAINER=moviepilot-v2
 
 - `python3 scripts/aro_request.py route "盘搜搜索 大君夫人"`
 - `python3 scripts/aro_request.py route --text "盘搜搜索 大君夫人"`
-- `python3 scripts/aro_request.py route "盘搜搜索 大君夫人"`
-- `python3 scripts/aro_request.py route "智能搜索 蜘蛛侠"`
+- `python3 scripts/aro_request.py route "影巢搜索 大君夫人"`
+- `python3 scripts/aro_request.py route "MP搜索 蜘蛛侠"`
 
 `route`、`pick`、`workflow`、`plan-execute`、`followup` 还支持：
 
@@ -223,12 +223,10 @@ python3 scripts/aro_request.py session-clear default
 python3 scripts/aro_request.py sessions-clear --has-pending-p115 --limit 10
 python3 scripts/aro_request.py recover
 python3 scripts/aro_request.py route "盘搜搜索 大君夫人"
-python3 scripts/aro_request.py route "智能搜索 蜘蛛侠"
-python3 scripts/aro_request.py route "资源决策 蜘蛛侠"
-python3 scripts/aro_request.py route "资源决策 蜘蛛侠 详情"
-python3 scripts/aro_request.py route "资源决策 蜘蛛侠 计划"
-python3 scripts/aro_request.py route "资源决策 蜘蛛侠 确认"
-python3 scripts/aro_request.py route "资源决策 蜘蛛侠 直接执行"
+python3 scripts/aro_request.py route "影巢搜索 蜘蛛侠"
+python3 scripts/aro_request.py route "MP搜索 蜘蛛侠"
+python3 scripts/aro_request.py route "PT搜索 蜘蛛侠"
+python3 scripts/aro_request.py route "下载 蜘蛛侠"
 python3 scripts/aro_request.py route "失败样本 蜘蛛侠"
 python3 scripts/aro_request.py route "工作清单 蜘蛛侠"
 python3 scripts/aro_request.py route "样本洞察 蜘蛛侠"
@@ -240,10 +238,10 @@ python3 scripts/aro_request.py route "确认执行"
 python3 scripts/aro_request.py route "先看详情"
 python3 scripts/aro_request.py route "计划"
 python3 scripts/aro_request.py route "详情"
-python3 scripts/aro_request.py route "智能计划 蜘蛛侠"
-python3 scripts/aro_request.py route "智能执行 蜘蛛侠"
-python3 scripts/aro_request.py route "计划最佳"
-python3 scripts/aro_request.py route "执行最佳"
+python3 scripts/aro_request.py route "MP搜索 蜘蛛侠"
+python3 scripts/aro_request.py route "PT搜索 蜘蛛侠"
+python3 scripts/aro_request.py route "盘搜搜索 蜘蛛侠"
+python3 scripts/aro_request.py route "影巢搜索 蜘蛛侠"
 python3 scripts/aro_request.py pick 1
 ```
 
@@ -261,50 +259,7 @@ python3 scripts/aro_request.py pick 1
 
 从 `0.2.66` 开始，`request_templates` 还会直接给出 `entry_playbooks`，把外部智能体、MP 内置智能体、飞书入口各自该调什么 helper / HTTP / Tool 以及优先读取哪些字段直接列出来。新接入方优先读这个结构，不要再自己拼第二套启动脚手架。
 
-如果外部智能体已经确定是 MP 原生 PT 搜索/下载/订阅任务，优先拉 `mp_pt` recipe；如果是热门推荐、豆瓣热映、Bangumi 番剧续接，优先拉 `recommend` recipe。推荐列表里的条目现在支持：
-- `选择 1 决策`
-- `选择 1 计划`
-- `选择 1 确认`
-- `详情 1`
-也支持直接对当前榜单首项继续发：
-- `详情`
-- `计划`
-- `确认`
-也支持会话内短命令：
-- `决策 1`
-- `计划 1`
-- `确认 1`
-也支持单句直达当前榜单首项：
-- `智能发现 热门电影 详情`
-- `智能发现 热门电影 计划`
-- `智能发现 热门电影 确认`
-以及单句直达具体来源：
-- `智能发现 热门电影 盘搜`
-- `智能发现 热门电影 影巢`
-- `智能发现 热门电影 原生`
-如果已经从推荐会话切到了 `盘搜 / 影巢 / 原生`，也可以直接发：
-- `回推荐`
-- `盘搜 / 影巢 / 原生`
-- 在 `盘搜 / 原生` handoff 会话里，也支持：
-  - `详情 / 计划 / 确认 / 决策`
-如果先看了 `详情 1`，之后还可以直接继续发：
-- `详情`
-- `决策`
-- `计划`
-- `确认`
-- `盘搜`
-- `影巢`
-- `原生`
-以及推荐会话内 follow-up：
-- `电影`
-- `电视剧`
-- `豆瓣`
-- `热映`
-- `番剧`
-
-注意：`workflow` 会直接执行只读工作流；涉及下载、订阅、解锁或转存的写入工作流会默认保存待确认执行的 `plan_id`。
-
-当前 PT 主线默认仍走 `plan_id` 确认链路。即使偏好里开启了 `auto_ingest_enabled=true`，外部智能体也应先展示评分和风险，再等待用户确认执行计划。
+如果外部智能体已经确定是 MP 原生 PT 搜索/下载/订阅任务，优先拉 `mp_pt` recipe；如果是插件状态、下载器状态、订阅列表这类管理查询，优先拉 `mp_admin` recipe。当前公开主线尽量保持小而稳：搜索、下载、订阅、状态查询、Cookie 修复。
 
 首次交给外部智能体使用时，建议先运行 `preferences`。如果返回需要初始化偏好，智能体应询问用户：清晰度、杜比视界/HDR、字幕、电视剧是否全集优先、PT 最低做种、影巢积分上限、默认目录、是否允许高分资源自动入库。偏好会用于云盘和 PT 分源评分。
 
@@ -320,32 +275,15 @@ python3 scripts/aro_request.py pick 1
 - `保存偏好 只用盘搜 不用影巢`
 - `保存偏好 只用 MP/PT`
 
-之后优先用 `智能搜索`：
+之后优先用显式前缀搜索：
 
-- `python3 scripts/aro_request.py route "智能搜索 蜘蛛侠"`
-- `python3 scripts/aro_request.py route "资源决策 蜘蛛侠"`
-- `python3 scripts/aro_request.py route "智能计划 蜘蛛侠"`
-- `python3 scripts/aro_request.py route "智能执行 蜘蛛侠"`
+- `python3 scripts/aro_request.py route "MP搜索 蜘蛛侠"`
+- `python3 scripts/aro_request.py route "PT搜索 蜘蛛侠"`
+- `python3 scripts/aro_request.py route "盘搜搜索 蜘蛛侠"`
+- `python3 scripts/aro_request.py route "影巢搜索 蜘蛛侠"`
+- `python3 scripts/aro_request.py route "下载 蜘蛛侠"`
 
-这条入口会先按偏好过滤可用源和可用云盘，再按默认顺序 `盘搜 -> 影巢 -> MP/PT` 做统一搜索决策；如果前面某一源已经给出足够高分、风险可控的候选，就不会继续无意义展开后面的源。
-
-如果你已经做过一次 `智能搜索`，也可以直接在当前会话里发：
-
-- `python3 scripts/aro_request.py route "计划最佳"`
-- `python3 scripts/aro_request.py route "执行最佳"`
-- `python3 scripts/aro_request.py route "换影巢"`
-- `python3 scripts/aro_request.py route "换盘搜"`
-- `python3 scripts/aro_request.py route "换PT"`
-- `python3 scripts/aro_request.py route "保守一点"`
-- `python3 scripts/aro_request.py route "激进一点"`
-- `python3 scripts/aro_request.py route "只用夸克"`
-- `python3 scripts/aro_request.py route "只用115"`
-- `python3 scripts/aro_request.py route "只走PT"`
-- `python3 scripts/aro_request.py route "不用影巢"`
-- `python3 scripts/aro_request.py route "按保存偏好"`
-
-它会按当前智能搜索会话里的首选结果，直接生成待确认 `plan_id`，但不会立刻执行下载、解锁或转存。
-如果用户已经明确要求立即执行，再用 `智能执行` 或 `执行最佳`；这两个入口会直接走写入链。
+当前原则是：少命令、少歧义、少二次加工。不要再从 helper 层自行拼“智能搜索/资源决策/执行最佳”这类复合入口。
 
 AI 失败样本链现在分两步：
 
@@ -558,7 +496,6 @@ MP 原生搜索结果出来后，也可以直接：
 python3 scripts/aro_request.py route --text "下载1"
 python3 scripts/aro_request.py route --text "下载第1个"
 python3 scripts/aro_request.py route --text "订阅蜘蛛侠"
-python3 scripts/aro_request.py route --text "订阅并搜索蜘蛛侠"
 python3 scripts/aro_request.py route --text "MP搜索 蜘蛛侠" --session agent:demo
 python3 scripts/aro_request.py pick --choice 1 --session agent:demo
 python3 scripts/aro_request.py route --text "计划选择 1" --session agent:demo
@@ -581,11 +518,11 @@ python3 scripts/aro_request.py route --text "执行 plan-xxxx" --session agent:d
 
 `盘搜搜索` / `影巢搜索` 返回后，不要自行改写成每个来源各自从 `1` 开始编号的小表格，也不要只摘“亮点”。如果插件返回了全局编号，就保留全局编号；如果插件提示“影巢候选未自动展开”，也应原样保留这句，而不是把它改成一句“影巢还有候选，需要可发影巢搜索”然后丢掉上文结构。
 
-`MP搜索` / `PT搜索` 返回后，也不要自行改写成简表。尤其不要重写英文 release title，插件会在点号标题里加入隐藏断点，并用 `🧲`、`🌱`、`🎁`、`💾`、`⭐` 等 emoji 改善手机微信阅读；这些标记都应原样保留。
+`MP搜索` / `PT搜索` 返回后，也不要自行改写成简表。尤其不要重写英文 release title，插件会在点号标题里加入隐藏断点，并用 `🌱`、`🎁`、`💾`、`⭐` 等 emoji 改善手机微信阅读；这些标记都应原样保留。
 
 `更新检查` / `检查` 返回后，同样不要改写成 `#: 来源 / 详情 / 日期` 这种字段表。插件已经会输出 `🟨 盘搜结果`、`🟦 影巢结果`、`🗄 #编号 夸克`、`📺 #编号 115`、`🕒日期`、`📌 集数`，这些行应原样保留，最多在列表后追加一段很短的自然语言建议。
 
-`MP搜索` / `PT搜索` 返回后，也不要自行改写成简表。尤其不要重写英文 release title，插件会在点号标题里加入隐藏断点，并用 `🧲`、`🌱`、`🎁`、`💾`、`⭐` 等 emoji 改善手机微信阅读；这些标记都应原样保留。
+`MP搜索` / `PT搜索` 返回后，也不要自行改写成简表。尤其不要重写英文 release title，插件会在点号标题里加入隐藏断点，并用 `🌱`、`🎁`、`💾`、`⭐` 等 emoji 改善手机微信阅读；这些标记都应原样保留。
 
 `更新检查` / `检查` 返回后，同样不要改写成 `#: 来源 / 详情 / 日期` 这种字段表。插件已经会输出 `🟨 盘搜结果`、`🟦 影巢结果`、`🗄 #编号 夸克`、`📺 #编号 115`、`🕒日期`、`📌 集数`，这些行应原样保留，最多在列表后追加一段很短的自然语言建议。
 
@@ -622,11 +559,11 @@ python3 scripts/aro_request.py workflow --workflow mp_sites --status active --li
 python3 scripts/aro_request.py workflow --workflow mp_downloaders
 ```
 
-MP 订阅也可以交给 Agent影视助手统一调度。查询是读操作；搜索、暂停、恢复、删除订阅会先返回 `plan_id`：
+MP 订阅也可以交给 Agent影视助手统一调度。查询是读操作；刷新、暂停、恢复、删除订阅会先返回 `plan_id`：
 
 ```bash
 python3 scripts/aro_request.py route --text "订阅列表"
-python3 scripts/aro_request.py route --text "搜索订阅 1"
+python3 scripts/aro_request.py route --text "刷新订阅 1"
 python3 scripts/aro_request.py route --text "暂停订阅 1"
 python3 scripts/aro_request.py route --text "恢复订阅 1"
 python3 scripts/aro_request.py route --text "删除订阅 1"
