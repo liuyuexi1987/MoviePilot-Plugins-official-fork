@@ -126,7 +126,7 @@ class AgentResourceOfficer(_PluginBase):
     plugin_name = "Agent影视助手"
     plugin_desc = "龙虾agent稳定控制 MP：飞书入口、盘搜/影巢搜索、115/夸克转存、智能评分推荐。"
     plugin_icon = "https://raw.githubusercontent.com/liuyuexi1987/MoviePilot-Plugins/main/icons/agentresourceofficer.png"
-    plugin_version = "0.2.70"
+    plugin_version = "0.2.71"
     request_templates_schema_version = "request_templates.v1"
     plugin_author = "liuyuexi1987"
     plugin_level = 1
@@ -11176,6 +11176,158 @@ class AgentResourceOfficer(_PluginBase):
                 "data": self._assistant_response_data(session=session, data={"action": "mp_recommendations", "ok": False}),
             }
 
+    async def _assistant_streaming_recommend(
+        self,
+        *,
+        media_type: str = "all",
+        intent: str = "hot",
+        month: str = "",
+        window_days: int = 90,
+        session: str = "default",
+        cache_key: str = "",
+        compact: bool = False,
+    ) -> Dict[str, Any]:
+        """流媒体推荐：TMDB discover 直连，返回按热度+评分综合排序的推荐列表"""
+        try:
+            from datetime import date as _date, timedelta as _td
+            from .services.streaming_recommend import StreamingRecommendService
+        except Exception as exc:
+            return {
+                "success": False,
+                "message": f"流媒体推荐加载失败：{exc}",
+                "data": self._assistant_response_data(session=session, data={"action": "streaming_recommend", "ok": False}),
+            }
+
+        tmdb_api_key = self._read_tmdb_api_key()
+        if not tmdb_api_key:
+            return {
+                "success": False,
+                "message": "TMDB API Key 未配置，无法查询流媒体推荐。请在 MoviePilot 系统设置中配置 TMDB API Key。",
+                "data": self._assistant_response_data(session=session, data={"action": "streaming_recommend", "ok": False}),
+            }
+
+        today = _date.today()
+
+        # ── 时间范围 ──
+        start_date = ""
+        end_date = ""
+        if month:
+            # month 格式：2026-05 → 严格按自然月
+            try:
+                y, m = (int(x) for x in month.split("-"))
+                month_start = _date(y, m, 1)
+                if m == 12:
+                    month_end = _date(y + 1, 1, 1) - _td(days=1)
+                else:
+                    month_end = _date(y, m + 1, 1) - _td(days=1)
+                start_date = month_start.isoformat()
+                end_date = month_end.isoformat()
+            except Exception:
+                start_date = today.isoformat()
+                end_date = today.isoformat()
+        elif window_days > 0:
+            start_date = (today - _td(days=window_days)).isoformat()
+            end_date = today.isoformat()
+        else:
+            start_date = today.isoformat()
+            end_date = today.isoformat()
+
+        service = StreamingRecommendService(tmdb_api_key=tmdb_api_key)
+        result = await service.query(
+            media_type=media_type,
+            intent=intent,
+            start_date=start_date,
+            end_date=end_date,
+            window_days=window_days,
+            limit=10,
+        )
+
+        if not result.get("success"):
+            return {
+                "success": False,
+                "message": result.get("message") or "流媒体推荐查询失败。",
+                "data": self._assistant_response_data(session=session, data={"action": "streaming_recommend", "ok": False}),
+            }
+
+        items = result.get("items") or []
+        query_params = result.get("query_params") or {}
+
+        if month:
+            try:
+                _y, _m = (int(x) for x in month.split("-"))
+                time_desc = f"{_y}年{_m:02d}月"
+            except Exception:
+                time_desc = month
+        else:
+            time_desc = f"近{window_days}天"
+
+        if not items:
+            type_desc = {"movie": "电影", "tv": "剧集"}.get(media_type, "影视")
+            return {
+                "success": True,
+                "message": f"流媒体推荐（{time_desc} · {type_desc}）暂无结果。请换个条件试试。",
+                "data": self._assistant_response_data(session=session, data={
+                    "action": "streaming_recommend",
+                    "ok": True,
+                    "items": [],
+                }),
+            }
+
+        # ── 格式化输出 ──
+        intent_labels = {"hot": "热门", "new": "上新", "big_titles": "大作"}
+        type_labels = {"movie": "电影", "tv": "剧集", "all": "影视"}
+        header = f"流媒体推荐（{time_desc} · {intent_labels.get(intent, '热门')} · {type_labels.get(media_type, '影视')}）共 {len(items)} 条"
+
+        lines = [header]
+        for item in items:
+            idx = item.get("index", "")
+            title = item.get("title", "-")
+            year = item.get("year", "-")
+            media_t = item.get("media_type", "-")
+            avg = item.get("vote_average", "-")
+            pop = item.get("popularity", "-")
+            release = item.get("release_date", "")
+            reason = item.get("reason", "")
+            display_release = release[:10] if release else "-"
+
+            emoji = "🎬" if media_t == "电影" else "📺"
+            lines.append(
+                f"{idx}. {emoji} {title} ({year}) | 评分 {avg} | 热度 {pop}"
+            )
+            lines.append(
+                f"   上线：{display_release} | {reason}"
+            )
+
+        lines.append("当前结果为只读推荐列表；如需继续处理，请改发 MP搜索 / PT搜索 / 盘搜搜索 / 影巢搜索 片名。")
+
+        # ── 存 session ──
+        if cache_key:
+            self._save_session(cache_key, {
+                "kind": "assistant_streaming_recommend",
+                "stage": "result",
+                "media_type": media_type,
+                "intent": intent,
+                "month": month,
+                "window_days": window_days,
+                "items": items,
+                "query_params": query_params,
+            })
+
+        return {
+            "success": True,
+            "message": "\n".join(lines),
+            "data": self._assistant_response_data(session=session, data={
+                "action": "streaming_recommend",
+                "ok": True,
+                "media_type": media_type,
+                "intent": intent,
+                "month": month,
+                "window_days": window_days,
+                "items": items,
+                "query_params": query_params,
+            }),
+        }
+
     def _format_mp_recommend_item_detail_text(self, item: Dict[str, Any]) -> str:
         title = self._clean_text(item.get("title")) or "-"
         year = self._clean_text(item.get("year")) or "-"
@@ -15441,8 +15593,9 @@ class AgentResourceOfficer(_PluginBase):
             "11. text=站点状态；下载器状态 用于排查 PT 搜索/下载环境",
             "12. text=记录 片名 用于判断资源是否提交过下载并进入整理流程",
             "13. text=状态 片名 一次查看下载任务、下载历史和入库历史",
-            "14. text=识别 片名 使用 MoviePilot 原生识别确认 TMDB/Douban/IMDB 信息",
-            "15. text=订阅列表；刷新订阅 1 / 暂停订阅 1 / 恢复订阅 1 / 删除订阅 1 会先生成计划",
+            "14. text=流媒体推荐 5月上新的大作 / 本月热门电影 / 近期热门剧",
+            "15. text=识别 片名 使用 MoviePilot 原生识别确认 TMDB/Douban/IMDB 信息",
+            "16. text=订阅列表；刷新订阅 1 / 暂停订阅 1 / 恢复订阅 1 / 删除订阅 1 会先生成计划",
             "17. text=入库记录；入库失败 片名 用于判断下载后是否已经整理落库",
             "18. text=执行计划 执行当前会话最近待执行计划；text=执行 plan-xxxx 精确执行指定计划",
             "19. text=偏好 / 保存偏好 4K 杜比 HDR 中字 全集 做种>=3 影巢积分20 不自动入库 / 重置偏好",
@@ -15514,6 +15667,7 @@ class AgentResourceOfficer(_PluginBase):
                     "mp_subscribe",
                     "mp_subscribe_search",
                     "mp_recommendations",
+                    "streaming_recommend",
                     "execute_plan",
                     "plans_list",
                     "plans_clear",
@@ -18484,6 +18638,10 @@ class AgentResourceOfficer(_PluginBase):
             "decision_intent": "",
             "sample_index": "",
             "remove_if_resolved": "true",
+            "streaming_intent": "",
+            "streaming_month": "",
+            "streaming_window": "",
+            "streaming_media_type": "",
         }
         if options.get("mode") in {"smart", "smart_decision"} and options.get("keyword"):
             cleaned_keyword, decision_intent = AgentResourceOfficer._extract_smart_decision_intent(options.get("keyword") or "")
@@ -18525,6 +18683,61 @@ class AgentResourceOfficer(_PluginBase):
             remain_text = AgentResourceOfficer._clean_text(replay_match.group(3))
             if "保留样本" in remain_text or "不移除" in remain_text:
                 options["remove_if_resolved"] = "false"
+        # ── 流媒体推荐 ──
+        # 只支持显式前缀命令，避免自然语言兜底和历史推荐命令互相干扰。
+        from datetime import date as _date
+        _today = _date.today()
+        streaming_match = re.match(r"^\s*流媒体推荐\s*(.*?)$", raw, re.IGNORECASE)
+        if streaming_match:
+            _streaming_text = AgentResourceOfficer._clean_text(streaming_match.group(1))
+            _nl_compact = re.sub(r"\s+", "", _streaming_text)
+            options["action"] = "streaming_recommend"
+            options["mode"] = ""
+            options["keyword"] = _streaming_text
+
+            # 媒体类型
+            if any(t in _nl_compact for t in ["电影", "影片"]):
+                options["streaming_media_type"] = "movie"
+            elif any(t in _nl_compact for t in ["剧", "剧集", "电视剧", "美剧", "英剧", "日剧", "韩剧"]):
+                options["streaming_media_type"] = "tv"
+            else:
+                options["streaming_media_type"] = "all"
+
+            # 意图
+            if any(t in _nl_compact for t in ["大作", "大片", "佳作", "高分", "口碑", "好看", "精彩"]):
+                options["streaming_intent"] = "big_titles"
+            elif any(t in _nl_compact for t in ["新", "上新", "最新", "刚上", "新片", "新剧"]):
+                options["streaming_intent"] = "new"
+            else:
+                options["streaming_intent"] = "hot"
+
+            # 时间：匹配"N月" → specific_month；"本月" → this_month；"近期" → recent
+            month_match = re.search(r"(\d{1,2})\s*月", _streaming_text)
+            if month_match:
+                raw_month = int(month_match.group(1))
+                if 1 <= raw_month <= 12:
+                    target_year = _today.year
+                    if raw_month > _today.month:
+                        target_year -= 1
+                    options["streaming_month"] = f"{target_year}-{raw_month:02d}"
+                    options["streaming_window"] = ""
+                else:
+                    options["streaming_month"] = ""
+                    options["streaming_window"] = "90"
+            elif re.search(r"本月|这个月", _streaming_text):
+                options["streaming_month"] = f"{_today.year}-{_today.month:02d}"
+                options["streaming_window"] = ""
+            elif re.search(r"上月|上个月", _streaming_text):
+                last_month = _today.month - 1 if _today.month > 1 else 12
+                last_year = _today.year if _today.month > 1 else _today.year - 1
+                options["streaming_month"] = f"{last_year}-{last_month:02d}"
+                options["streaming_window"] = ""
+            elif re.search(r"近期|最近|近来", _streaming_text):
+                options["streaming_month"] = ""
+                options["streaming_window"] = "90"
+            else:
+                options["streaming_month"] = f"{_today.year}-{_today.month:02d}"
+                options["streaming_window"] = ""
         if options.get("plan_id") and compact.startswith(("执行plan-", "确认plan-", "executeplan-")):
             options["action"] = "execute_plan"
             options["mode"] = ""
@@ -22421,6 +22634,16 @@ class AgentResourceOfficer(_PluginBase):
                 cache_key=cache_key,
                 remove_if_resolved=remove_if_resolved,
             ))
+        if assistant_action == "streaming_recommend":
+            return finish(await self._assistant_streaming_recommend(
+                media_type=parsed.get("streaming_media_type") or "all",
+                intent=parsed.get("streaming_intent") or "hot",
+                month=parsed.get("streaming_month") or "",
+                window_days=self._safe_int(parsed.get("streaming_window") or body.get("window_days"), 90),
+                session=session,
+                cache_key=cache_key,
+                compact=compact,
+            ))
         if assistant_action == "mp_subscribe_control":
             control = self._clean_text(parsed.get("subscribe_control") or body.get("subscribe_control") or body.get("control") or body.get("operation")).lower()
             control_aliases = {
@@ -23097,6 +23320,17 @@ class AgentResourceOfficer(_PluginBase):
             })
 
         mode = parsed.get("mode") or "hdhive"
+        # ── 流媒体推荐：不走搜索链路，直接进入 action 分发 ──
+        if self._clean_text(parsed.get("action")) == "streaming_recommend":
+            return finish(await self._assistant_streaming_recommend(
+                media_type=parsed.get("streaming_media_type") or "all",
+                intent=parsed.get("streaming_intent") or "hot",
+                month=parsed.get("streaming_month") or "",
+                window_days=self._safe_int(parsed.get("streaming_window") or body.get("window_days"), 90),
+                session=session,
+                cache_key=cache_key,
+                compact=compact,
+            ))
         media_type = self._clean_text(parsed.get("type") or "auto").lower() or "auto"
         year = self._clean_text(parsed.get("year"))
         result_filter = self._clean_text(parsed.get("result_filter")).lower()

@@ -74,6 +74,7 @@ Resource commands that must go straight to `route` / `pick`:
 - `下载`
 - `更新` / `更新检查` / `检查`
 - `盘搜更新检查` / `影巢更新检查`
+- `流媒体推荐` (streaming recommendations, e.g. `流媒体推荐 本月热门电影`)
 - `选择` / `详情` / `n` / `下一页`
 - numbered follow-ups
 
@@ -199,7 +200,11 @@ python3 scripts/aro_request.py calibrate
 
 When a user says plain `搜索 <片名>` or `找 <片名>`, pass that text through to `route` first. Do not guess that the user meant HDHive, and do not continue an old result session by sending `选择 1` unless the user actually chose an item in the current round. Default plain search should start from MoviePilot native/PT search; only if MP/PT is disabled should the plugin fall back to other enabled search sources.
 
-For any explicit new title command such as `搜索低智商犯罪`, `搜索 低智商犯罪`, `MP搜索 <片名>`, `PT搜索 <片名>`, `下载 <片名>`, `转存 <片名>`, or `更新检查 <片名>`, route the original text as the user's current intent. If the route call fails, only retry the same original text, switch to a new session with the same original text, or report the error. Do not inspect old sessions and then automatically `pick 1`, `选择 1`, or submit any download/transfer. Old-session recovery is allowed only for explicit follow-ups like `选择 14`, `14详情`, `下载10`, `执行计划`, or wording that clearly says "刚才/上次/原来的".
+For any explicit new title command such as `搜索低智商犯罪`, `搜索 低智商犯罪`, `MP搜索 <片名>`, `PT搜索 <片名>`, `下载 <片名>`, `转存 <片名>`, `流媒体推荐 <自然语言>`, or `更新检查 <片名>`, route the original text as the user's current intent. If the route call fails, only retry the same original text, switch to a new session with the same original text, or report the error. Do not inspect old sessions and then automatically `pick 1`, `选择 1`, or submit any download/transfer. Old-session recovery is allowed only for explicit follow-ups like `选择 14`, `14详情`, `下载10`, `执行计划`, or wording that clearly says "刚才/上次/原来的".
+
+When a user says `流媒体推荐 本月热门电影`, `流媒体推荐 近期热门剧`, `流媒体推荐 5月上新的大作`, `流媒体推荐 本月热门`, or any text starting with `流媒体推荐`, route the FULL original text directly to `route`. Do NOT decompose it into separate keyword searches. Do NOT split "电视剧" / "热门" / "电影" into individual route calls.
+
+Keep this feature behind the explicit `流媒体推荐` prefix. Do NOT auto-add the prefix for vague natural language such as `推荐热门剧集`, `5月热门`, or `最近有什么好看的电影`. This keeps the public command surface small and avoids drifting into retired recommendation commands.
 
 When the user clearly refers to a previously shown numbered result, for example `刚才那个 22`、`上次的 #22`、`把原来的 22 转存`、`下载 10`、`选择 14`, do not restart search first. Reuse the current session, or recover the latest matching session with `decide --summary-only` / `sessions` / `session`, then continue with `pick`. Only restart the search when the old session is truly gone and cannot be recovered.
 
@@ -711,6 +716,10 @@ Natural-language route examples that should call recommendations:
 豆瓣热门电影
 正在热映
 今日番剧
+流媒体推荐 本月热门电影
+流媒体推荐 近期热门剧
+流媒体推荐 5月上新的大作
+流媒体推荐 本月热门
 ```
 
 ## Confirmation Rules

@@ -13,12 +13,14 @@
 ## 当前核心版本
 
 - `AIRecognizerEnhancer`: `0.1.12`
-- `AgentResourceOfficer`: `0.2.70`
+- `AgentResourceOfficer`: `0.2.71`
 - `FeishuCommandBridgeLong`: `0.5.26`
 - `HdhiveOpenApi`: `0.3.0`
 - `QuarkShareSaver`: `0.1.0`
 
 ## 近期基础设施更新
+
+- `AgentResourceOfficer 0.2.71`：新增流媒体推荐能力；聚合 Netflix、Disney+、Apple TV+、Prime Video 四大平台，基于 TMDB discover 支持本月上新、近期热门电影/剧集等显式前缀推荐，结果页为只读列表，不扩张主线命令面。
 
 - `AgentResourceOfficer 0.2.70`：最后一轮主线收口；取消标题级云盘转存/云盘搜索公开入口，统一保留前缀搜索与编号续接；补齐直链 115/夸克分享转存优先级，修复 PT 指定集/最新集筛选、下载路径透传、分页、旧别名拦截与外部智能体 Skill/命令文档同步。
 
