@@ -1,8 +1,8 @@
 # 外部智能体接入 Agent影视助手
 
-当前插件版本：`Agent影视助手 0.2.69`
+当前插件版本：`Agent影视助手 0.2.70`
 
-当前 helper 版本：`agent-resource-officer 0.1.49`
+当前 helper 版本：`agent-resource-officer 0.1.51`
 
 让 `OpenClaw`、`Hermes`、`WorkBuddy` 或其他外部智能体，也能稳定调用 MoviePilot 的搜片、转存、下载、签到和修复能力。
 
@@ -45,7 +45,7 @@ ls <target>/SKILL.md && echo "安装成功"
 skills/agent-resource-officer/SKILL.md
 
 连接配置：
-请写入 ~/.config/agent-resource-officer/config
+优先写入已安装 skill 目录里的 config；没有本地 config 时，helper 才会回退到 ~/.config/agent-resource-officer/config
 
 ARO_BASE_URL=http://你的MoviePilot地址:3000
 ARO_API_KEY=<去 MoviePilot 设置 → 安全设置 → API Token 复制>
@@ -57,6 +57,7 @@ ARO_BASE_URL=http://192.168.1.100:3000
 python3 <target>/scripts/aro_request.py readiness
 
 这里的 <target> 就是上面 install.sh 使用的实际安装目录。
+`install.sh` 首次安装时会把当前全局配置复制到 `<target>/config`；后续重装会保留这个本地 config。这样不同客户端可以各连各的 MoviePilot。
 
 MCP 接入是可选项，不影响 ARO 使用。
 只有客户端明确支持远程 HTTP MCP、MoviePilot 的 /api/v1/mcp 可以访问，并且当前会话能看到 mcp__moviepilot__* 工具时，才算 MCP 已接通。
